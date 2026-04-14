@@ -1,0 +1,3 @@
+t=open(chr(110)+chr(117)+chr(100)+chr(103)+chr(101)+chr(95)+chr(98)+chr(97)+chr(99)+chr(107)+chr(101)+chr(110)+chr(100)+chr(46)+chr(112)+chr(121)).read()
+open(chr(110)+chr(117)+chr(100)+chr(103)+chr(101)+chr(95)+chr(98)+chr(97)+chr(99)+chr(107)+chr(101)+chr(110)+chr(100)+chr(46)+chr(112)+chr(121),chr(119)).write(t.replace(chr(91)+chr(39)+chr(105)+chr(100)+chr(39)+chr(93),chr(91)+chr(48)+chr(93)))
+print(chr(70)+chr(105)+chr(120)+chr(101)+chr(100))

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nudge — My Appointments</title>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--red:#cc0000;--red-h:#e00a0a;--cream:#faf5eb;--cream2:#f2e8d6;--cream3:#e8dcc8;--brown:#2a1a0a;--brown2:#5a4a3a;--brown3:#8a7a6a;--gold:#c49a3c;--green:#1a7a2e;--green-s:#e6f5ea;--white:#fff;--r:10px}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--cream);color:var(--brown);font-family:'Libre Franklin',sans-serif;min-height:100vh}::selection{background:var(--red);color:#fff}
+header{background:var(--red);padding:16px 24px;text-align:center;box-shadow:0 4px 24px rgba(204,0,0,.25);position:sticky;top:0;z-index:50}
+.logo{font-family:'Great Vibes',cursive;font-size:1.8rem;color:#fff}.logo-sub{font-family:'IBM Plex Mono';font-size:.45rem;color:rgba(255,255,255,.5);letter-spacing:4px;display:block;margin-top:-2px}
+.container{max-width:660px;margin:0 auto;padding:20px 16px 60px}
+.welcome{text-align:center;padding:28px 0 16px}
+.welcome h1{font-family:'Great Vibes',cursive;font-size:2.8rem;color:var(--red);margin-bottom:0}
+.sec{margin-bottom:16px}
+.sec-t{font-size:.55rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--brown3);padding:0 4px 6px;border-bottom:1px solid var(--cream2);margin-bottom:8px}
+.card{background:var(--white);border:1.5px solid var(--cream2);border-radius:var(--r);padding:14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(42,26,10,.04)}
+.apt-date{font-family:'IBM Plex Mono';font-size:.5rem;color:var(--brown3);margin-bottom:4px}
+.apt-row{display:flex;justify-content:space-between;align-items:center}
+.apt-time{font-weight:700;font-size:.95rem}.apt-svc{font-size:.6rem;color:var(--brown2);margin-top:1px}
+.apt-price{font-family:'IBM Plex Mono';font-weight:700;color:var(--green);font-size:.75rem}
+.apt-links{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.alink{padding:5px 10px;border-radius:6px;font-size:.55rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:3px;cursor:pointer}
+.alink.rep{background:rgba(204,0,0,.06);color:var(--red);border:1px solid rgba(204,0,0,.12)}
+.alink.inv{background:var(--cream);color:var(--brown2);border:1px solid var(--cream3)}
+
+/* Calendar */
+.cal-card{background:var(--white);border:1.5px solid var(--cream2);border-radius:var(--r);overflow:hidden;box-shadow:0 1px 3px rgba(42,26,10,.04)}
+.cal-top{padding:10px 14px;background:var(--cream);border-bottom:1px solid var(--cream2);display:flex;align-items:center;justify-content:space-between}
+.cal-top h3{font-size:.8rem;font-weight:700}
+.cal-ctrls{display:flex;gap:6px;align-items:center}
+.vtog{display:flex;gap:2px;background:var(--cream2);border-radius:6px;padding:2px}
+.vtog button{padding:3px 8px;border:none;background:transparent;font-family:'Libre Franklin';font-size:.5rem;font-weight:600;color:var(--brown3);border-radius:4px;cursor:pointer}
+.vtog button.act{background:var(--red);color:#fff}
+.cn-btn{width:26px;height:26px;border-radius:50%;background:var(--white);border:1.5px solid var(--cream2);color:var(--brown3);font-size:.75rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.cn-btn:hover{border-color:var(--red);color:var(--red)}
+.cal-body{padding:10px 14px}
+
+/* Month grid */
+.dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.45rem;font-weight:600;color:var(--brown3);padding:2px 0 4px;letter-spacing:.5px}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mday{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;font-size:.65rem;font-weight:500;cursor:pointer}
+.mday:hover{background:var(--cream)}.mday.other{opacity:.25}.mday.other:hover{opacity:.5}
+.mday.today{background:rgba(204,0,0,.06);font-weight:700;color:var(--red)}
+.mday.sel{background:var(--red);color:#fff}
+.mdots{display:flex;gap:1px;margin-top:1px}
+.mdot{width:3px;height:3px;border-radius:50%}.mdot.bk{background:var(--green)}.mdot.av{background:var(--cream3)}
+
+/* Week grid */
+.wgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.wcol-h{text-align:center;font-size:.45rem;font-weight:600;color:var(--brown3);padding:3px 0;border-bottom:1px solid var(--cream2);margin-bottom:2px}
+.wcol-h.wt{color:var(--red);border-bottom-color:var(--red)}
+.wsl{padding:2px 3px;margin-bottom:1px;border-radius:3px;font-size:.4rem;line-height:1.3}
+.wsl.wbk{background:rgba(26,122,46,.06);border-left:2px solid var(--green);cursor:pointer}
+.wsl.wbk:hover{background:rgba(26,122,46,.1)}
+.wsl.wtk{background:var(--cream);border-left:2px solid var(--cream3);cursor:pointer;color:var(--brown3)}
+.wsl.wtk:hover{border-left-color:var(--red);color:var(--red)}
+.wsl.wop{color:var(--brown3);opacity:.2}
+
+/* Day slots */
+.dslots{display:flex;flex-wrap:wrap;gap:5px}
+.cs{padding:8px 12px;border:1.5px solid var(--cream2);border-radius:8px;font-family:'IBM Plex Mono';font-size:.6rem;cursor:default;background:var(--white);transition:all .1s}
+.cs.avail{cursor:pointer;color:var(--green)}.cs.avail:hover{border-color:var(--green);background:var(--green-s)}
+.cs.taken{color:var(--brown3);background:var(--cream);cursor:pointer}.cs.taken:hover{border-color:var(--red);color:var(--red)}
+.cs.yours{background:var(--green-s);color:var(--green);border-color:rgba(26,122,46,.2);font-weight:700}
+.cs.blocked{opacity:.2;text-decoration:line-through}
+.cs.sel{border-color:var(--red);background:rgba(204,0,0,.04);color:var(--red);font-weight:700}
+.cal-legend{display:flex;gap:10px;margin-top:8px;font-size:.42rem;color:var(--brown3)}
+.cal-legend span{display:flex;align-items:center;gap:2px}
+.ld{width:6px;height:6px;border-radius:3px;border:1px solid var(--cream3)}.ld.g{background:var(--green-s);border-color:rgba(26,122,46,.2)}.ld.t{background:var(--cream)}.ld.a{border-style:dashed}
+
+/* Action panel */
+.act-panel{margin-top:10px;padding:12px;background:var(--cream);border-radius:var(--r)}
+.act-panel h4{font-size:.65rem;font-weight:700;margin-bottom:6px}
+.offer-opts{display:flex;gap:3px;flex-wrap:wrap;margin:4px 0}
+.oo{padding:4px 8px;border:1.5px solid var(--cream3);border-radius:6px;font-family:'IBM Plex Mono';font-size:.5rem;cursor:pointer;color:var(--brown2);background:var(--white)}
+.oo:hover{border-color:var(--red);color:var(--red)}.oo.act{border-color:var(--red);color:var(--red);background:rgba(204,0,0,.04);font-weight:700}
+.fee-prev{text-align:center;padding:8px;margin-top:6px;background:var(--white);border-radius:6px}
+.fee-prev .big{font-family:'Great Vibes',cursive;font-size:1.5rem;color:var(--red)}
+.fee-prev .sub{font-size:.45rem;color:var(--brown3);margin-top:1px}
+
+.btn{padding:6px 14px;border:none;border-radius:8px;font-family:'Libre Franklin';font-size:.6rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.btn:active{transform:scale(.97)}
+.btn-r{background:var(--red);color:#fff;width:100%;justify-content:center;padding:10px;margin-top:6px;font-size:.65rem}.btn-r:hover{background:var(--red-h)}
+.btn-g{background:var(--green);color:#fff;width:100%;justify-content:center;padding:10px;margin-top:6px;font-size:.65rem}.btn-g:hover{background:#156b26}
+.btn-d{background:transparent;border:1.5px solid var(--red);color:var(--red)}.btn-d:hover{background:var(--red);color:#fff}
+.btn-acc{background:var(--green);color:#fff}.btn-acc:hover{background:#156b26}
+
+.ng-card{background:var(--white);border:2px solid rgba(204,0,0,.1);border-radius:var(--r);padding:12px;margin-bottom:8px}
+.ng-card.inc{border-left:3px solid var(--red)}.ng-card.out{border-left:3px solid var(--gold)}
+.ng-lbl{font-family:'IBM Plex Mono';font-size:.45rem;font-weight:700;letter-spacing:.5px;margin-bottom:3px}
+.ng-lbl.pend{color:var(--red)}.ng-lbl.ok{color:var(--green)}.ng-lbl.no{color:var(--brown3)}
+.ng-fee{font-family:'IBM Plex Mono';font-weight:700;font-size:.8rem;color:var(--red)}
+.ng-acts{display:flex;gap:6px;margin-top:6px}
+.empty{text-align:center;padding:16px;color:var(--brown3);font-size:.6rem}
+footer{text-align:center;padding:16px;font-size:.45rem;color:var(--brown3)}footer a{color:var(--red);text-decoration:none}
+</style>
+</head>
+<body>
+<header><div class="logo">Nudge</div><span class="logo-sub">the Fair Exchange</span></header>
+<div class="container">
+  <div class="welcome"><h1 id="wName">Welcome</h1></div>
+  <div class="sec" id="incSec" style="display:none"><div class="sec-t">Incoming Nudge Offers</div><div id="incList"></div></div>
+  <div class="sec"><div class="sec-t" style="display:flex;justify-content:space-between;align-items:baseline">the Nothing Box <span style="font-family:'IBM Plex Mono';font-size:.4rem;color:var(--cream3);letter-spacing:1px;text-transform:none">the Sol Standard</span></div><div id="aptList"></div></div>
+  <div class="sec"><div class="sec-t">Browse &amp; Book</div>
+    <div class="cal-card">
+      <div class="cal-top">
+        <h3 id="calTitle"></h3>
+        <div class="cal-ctrls">
+          <div class="vtog"><button id="cvMonth" onclick="setCv('month')">Month</button><button id="cvWeek" onclick="setCv('week')">Week</button><button id="cvDay" onclick="setCv('day')">Day</button></div>
+          <div style="display:flex;gap:3px"><button class="cn-btn" onclick="calNav(-1)">&lsaquo;</button><button class="cn-btn" onclick="calToday()">&bull;</button><button class="cn-btn" onclick="calNav(1)">&rsaquo;</button></div>
+        </div>
+      </div>
+      <div class="cal-body" id="calBody"></div>
+    </div>
+  </div>
+  <div class="sec" id="outSec" style="display:none"><div class="sec-t">Your Nudge Offers</div><div id="outList"></div></div>
+  <div class="sec" id="pastSec" style="display:none"><div class="sec-t">Past Sessions</div><div id="pastList"></div></div>
+</div>
+<footer>Powered by <a href="#">Nudge</a> &mdash; the Fair Exchange</footer>
+<script>
+var TOKEN=window.location.pathname.split('/me/')[1]||'';
+var API='/api/client/'+TOKEN;
+var PROF={},MY_APTS=[],cv='month',calDt=new Date(),selDt=new Date(),selSlot=null,selAction=null,selFee=0,PRICE=75;
+
+async function init(){
+  if(!TOKEN){document.querySelector('.container').innerHTML='<div class="empty" style="padding:60px">Invalid link.</div>';return}
+  try{var r=await fetch(API+'/profile');if(!r.ok)throw 0;PROF=await r.json();
+    document.getElementById('wName').textContent='Hello, '+PROF.name.split(' ')[0];
+    document.title='Nudge \u2014 '+PROF.name.split(' ')[0];
+    await loadApts();await loadNudges();
+    document.getElementById('cv'+cv[0].toUpperCase()+cv.slice(1)).classList.add('act');
+    drawCal();
+  }catch(e){document.querySelector('.container').innerHTML='<div class="empty" style="padding:60px">This link is no longer valid.</div>'}
+}
+
+async function loadApts(){
+  var r=await fetch(API+'/appointments');var apts=await r.json();
+  var today=new Date().toISOString().slice(0,10);
+  var up=apts.filter(function(a){return a.date>=today&&a.status!=='cancelled'});
+  var past=apts.filter(function(a){return a.date<today||a.status==='cancelled'});
+  MY_APTS=up;
+  if(up.length){var h='';up.forEach(function(a){h+='<div class="card"><div class="apt-date">'+fmtDate(a.date)+'</div><div class="apt-row"><div><div class="apt-time">'+a.time+'</div><div class="apt-svc">'+(a.service||'Session')+'</div></div><div class="apt-price">$'+(a.price||0).toFixed(2)+'</div></div></div>'});document.getElementById('aptList').innerHTML=h}
+  else{document.getElementById('aptList').innerHTML='<div class="empty">No upcoming appointments. Browse below to book.</div>'}
+  if(past.length){document.getElementById('pastSec').style.display='block';var ph='';past.forEach(function(a){var lnk='';if(a.report_token)lnk+='<a class="alink rep" href="/report/'+a.report_token+'" target="_blank">Report</a>';if(a.invoice_token)lnk+='<a class="alink inv" href="/invoice/'+a.invoice_token+'" target="_blank">Invoice</a>';ph+='<div class="card"><div class="apt-date">'+fmtDate(a.date)+'</div><div class="apt-row"><div><div class="apt-time">'+a.time+'</div><div class="apt-svc">'+(a.service||'')+'</div></div><div class="apt-price">$'+(a.price||0).toFixed(2)+'</div></div>'+(lnk?'<div class="apt-links">'+lnk+'</div>':'')+'</div>'});document.getElementById('pastList').innerHTML=ph}
+}
+
+async function loadNudges(){
+  var r=await fetch(API+'/nudges');var data=await r.json();
+  if(data.incoming&&data.incoming.length){document.getElementById('incSec').style.display='block';var h='';data.incoming.forEach(function(n){var mode=n.from_time?'swap':'buy';h+='<div class="ng-card inc"><div class="ng-lbl pend">OFFER '+n.attempt+'/2'+(n.attempt>=2?' FINAL':'')+'</div><div style="font-size:.65rem;margin:3px 0">Someone wants your <b>'+n.to_time+'</b> slot</div><div style="margin:3px 0"><span class="ng-fee">$'+n.fee.toFixed(2)+'</span> <span style="font-size:.45rem;color:var(--brown3)">'+(mode==='swap'?'swap with '+n.from_time:'buy your slot')+'</span></div><div class="ng-acts"><button class="btn btn-acc" style="flex:1;justify-content:center;padding:8px" onclick="respond('+n.id+',\'accepted\')">Accept $'+n.fee.toFixed(2)+'</button><button class="btn btn-d" style="flex:1;justify-content:center;padding:8px" onclick="respond('+n.id+',\'declined\')">Decline</button></div></div>'});document.getElementById('incList').innerHTML=h}
+  if(data.outgoing&&data.outgoing.length){document.getElementById('outSec').style.display='block';var oh='';data.outgoing.forEach(function(n){var lbl=n.status==='pending'?'PENDING':n.status==='accepted'?'ACCEPTED':n.status==='expired'?'EXPIRED':'DECLINED';var cls=n.status==='accepted'?'ok':n.status==='pending'?'pend':'no';oh+='<div class="ng-card out" style="opacity:'+(n.status==='pending'?1:.5)+'"><div class="ng-lbl '+cls+'">'+lbl+' '+n.attempt+'/2</div><div style="font-size:.55rem;color:var(--brown2)">'+n.to_time+' &middot; $'+n.fee.toFixed(2)+'</div></div>'});document.getElementById('outList').innerHTML=oh}
+}
+
+async function respond(nid,st){if(!confirm(st==='accepted'?'Accept and earn the fee?':'Decline this offer?'))return;await fetch(API+'/nudge/'+nid+'/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:st})});location.reload()}
+
+// ═══ CALENDAR ═══
+function setCv(v){cv=v;document.querySelectorAll('.vtog button').forEach(function(b){b.classList.remove('act')});document.getElementById('cv'+v[0].toUpperCase()+v.slice(1)).classList.add('act');drawCal()}
+function calNav(d){if(cv==='month')calDt.setMonth(calDt.getMonth()+d);else if(cv==='week')calDt.setDate(calDt.getDate()+d*7);else calDt.setDate(calDt.getDate()+d);drawCal()}
+function calToday(){calDt=new Date();selDt=new Date();drawCal()}
+function drawCal(){if(cv==='month')drawMonth();else if(cv==='week')drawWeek();else drawDay()}
+
+function drawMonth(){
+  document.getElementById('calTitle').textContent=calDt.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  var y=calDt.getFullYear(),m=calDt.getMonth(),first=new Date(y,m,1),last=new Date(y,m+1,0),sd=first.getDay();
+  var h='<div class="dow"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div><div class="mgrid">';
+  for(var i=0;i<sd;i++){var d=new Date(y,m,-(sd-1-i));h+='<div class="mday other" onclick="pickDay('+d.getFullYear()+','+d.getMonth()+','+d.getDate()+')">'+d.getDate()+'</div>'}
+  for(var d=1;d<=last.getDate();d++){var dt=new Date(y,m,d);var cls='mday';if(isSame(dt,new Date()))cls+=' today';if(isSame(dt,selDt))cls+=' sel';h+='<div class="'+cls+'" onclick="pickDay('+y+','+m+','+d+')">'+d+'<div class="mdots" id="cd-'+fd(dt)+'"></div></div>'}
+  var tc=sd+last.getDate(),rem=tc%7===0?0:7-tc%7;
+  for(var i=1;i<=rem;i++){var d=new Date(y,m+1,i);h+='<div class="mday other" onclick="pickDay('+d.getFullYear()+','+d.getMonth()+','+d.getDate()+')">'+i+'</div>'}
+  h+='</div>';
+  h+='<div style="border-top:1px solid var(--cream2);padding:10px 0 0;margin-top:8px"><div style="font-weight:700;font-size:.7rem;margin-bottom:6px">'+fmtLong(selDt)+'</div><div class="dslots" id="daySlots"></div><div class="cal-legend"><span><div class="ld a"></div>Open</span><span><div class="ld t"></div>Taken</span><span><div class="ld g"></div>Yours</span></div><div id="actPanel"></div></div>';
+  document.getElementById('calBody').innerHTML=h;
+  loadDaySlots(selDt);loadMonthDots();
+}
+
+function pickDay(y,m,d){selDt=new Date(y,m,d);calDt=new Date(y,m,d);drawCal()}
+
+async function loadMonthDots(){
+  var y=calDt.getFullYear(),m=calDt.getMonth();
+  for(var d=1;d<=new Date(y,m+1,0).getDate();d++){
+    var dt=new Date(y,m,d);
+    try{var r=await fetch(API+'/available/'+fd(dt));var sl=await r.json();
+    var bk=sl.filter(function(s){return s.is_yours});var tk=sl.filter(function(s){return s.label==='Booked'});
+    var el=document.getElementById('cd-'+fd(dt));if(el){var dots='';for(var i=0;i<Math.min(bk.length,2);i++)dots+='<div class="mdot bk"></div>';for(var j=0;j<Math.min(tk.length,2);j++)dots+='<div class="mdot av"></div>';el.innerHTML=dots}}catch(e){}
+  }
+}
+
+async function drawWeek(){
+  var start=new Date(calDt);start.setDate(start.getDate()-start.getDay());
+  document.getElementById('calTitle').textContent='Week of '+start.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  var h='<div class="wgrid">';
+  for(var i=0;i<7;i++){var d=new Date(start);d.setDate(d.getDate()+i);var td=isSame(d,new Date());
+    h+='<div><div class="wcol-h'+(td?' wt':'')+'">'+d.toLocaleDateString('en-US',{weekday:'short'})+'<br>'+d.getDate()+'</div><div id="wc-'+fd(d)+'"><div class="empty" style="font-size:.35rem;padding:4px">...</div></div></div>'}
+  h+='</div><div id="actPanel"></div>';
+  document.getElementById('calBody').innerHTML=h;
+  for(var i=0;i<7;i++){var d=new Date(start);d.setDate(d.getDate()+i);
+    try{var r=await fetch(API+'/available/'+fd(d));var sl=await r.json();var el=document.getElementById('wc-'+fd(d));if(!el)continue;
+    var wh='';sl.forEach(function(s){
+      if(s.is_yours){wh+='<div class="wsl wbk">'+s.time.split(' ')[0]+' ★</div>'}
+      else if(s.label==='Booked'){wh+='<div class="wsl wtk" onclick="pickDay('+d.getFullYear()+','+d.getMonth()+','+d.getDate()+');setCv(\'day\')">'+s.time.split(' ')[0]+'</div>'}
+      else if(s.status!=='blocked'){wh+='<div class="wsl wop" onclick="pickDay('+d.getFullYear()+','+d.getMonth()+','+d.getDate()+');setCv(\'day\')">'+s.time.split(' ')[0]+'</div>'}
+    });el.innerHTML=wh||'<div class="empty" style="font-size:.35rem;padding:4px">-</div>'}catch(e){}}
+}
+
+async function drawDay(){
+  document.getElementById('calTitle').textContent=fmtLong(calDt);selDt=new Date(calDt);
+  document.getElementById('calBody').innerHTML='<div class="dslots" id="daySlots"></div><div class="cal-legend"><span><div class="ld a"></div>Open</span><span><div class="ld t"></div>Taken</span><span><div class="ld g"></div>Yours</span></div><div id="actPanel"></div>';
+  await loadDaySlots(calDt);
+}
+
+async function loadDaySlots(date){
+  var ds=fd(date);selSlot=null;selAction=null;
+  var ap=document.getElementById('actPanel');if(ap)ap.innerHTML='';
+  try{var r=await fetch(API+'/available/'+ds);var slots=await r.json();
+  var el=document.getElementById('daySlots');if(!el)return;
+  var h='';slots.forEach(function(s){
+    if(s.is_yours){h+='<div class="cs yours">'+s.time+' ★</div>'}
+    else if(s.status==='blocked'){h+='<div class="cs blocked">'+s.time+'</div>'}
+    else if(s.label==='Booked'){h+='<div class="cs taken" onclick="pickSlot('+s.id+',\'nudge\',\''+esc(s.time)+'\',this)">'+s.time+'</div>'}
+    else{h+='<div class="cs avail" onclick="pickSlot('+s.id+',\'book\',\''+esc(s.time)+'\',this)">'+s.time+'</div>'}
+  });el.innerHTML=h}catch(e){}
+}
+
+function pickSlot(id,action,time,el){
+  selSlot=id;selAction=action;selFee=PRICE*0.2;
+  document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')});
+  if(el)el.classList.add('sel');
+  var ap=document.getElementById('actPanel');
+  if(action==='book'){
+    ap.innerHTML='<div class="act-panel"><h4>Book '+time+'</h4><div style="font-size:.6rem;color:var(--brown2);margin-bottom:6px">This slot is open. Tap to book it.</div><button class="btn btn-g" onclick="doBook()">Book '+time+'</button></div>';
+  }else{
+    var pcts=[10,15,20,25,30,50];var opts='';pcts.forEach(function(p){opts+='<div class="oo'+(p===20?' act':'')+'" onclick="pickFee('+p+',this)">'+p+'%&middot;$'+(PRICE*p/100).toFixed(0)+'</div>'});
+    ap.innerHTML='<div class="act-panel"><h4>Nudge for '+time+'</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">This slot is taken. Make an offer.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">2 offers max &middot; 30 min to respond</div></div><button class="btn btn-r" onclick="doNudge()">Send Nudge</button></div>';
+  }
+}
+
+function pickFee(p,el){selFee=PRICE*p/100;document.querySelectorAll('.oo').forEach(function(o){o.classList.remove('act')});el.classList.add('act');var fa=document.getElementById('feeAmt');if(fa)fa.textContent='$'+selFee.toFixed(2)}
+
+async function doBook(){
+  var r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slot_id:selSlot})});
+  var d=await r.json();if(d.error){alert(d.error);return}location.reload();
+}
+
+async function doNudge(){
+  if(selFee<=0){alert('Select an offer');return}
+  var body={to_slot_id:selSlot,fee:selFee};
+  if(MY_APTS.length>0)body.from_slot_id=MY_APTS[0].id;
+  var r=await fetch(API+'/nudge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var d=await r.json();if(d.error){alert(d.error);return}
+  alert('Nudge sent! Offer '+d.attempt+'/'+d.max+'. 30 min to respond.');location.reload();
+}
+
+function fd(d){return d.toISOString().slice(0,10)}
+function fmtDate(d){return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}
+function fmtLong(d){return d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}
+function isSame(a,b){return fd(a)===fd(b)}
+function esc(s){return(s||'').replace(/'/g,"\\'")}
+
+init();
+</script>
+</body>
+</html>

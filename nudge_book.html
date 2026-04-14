@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book a Session — The Sol Standard</title>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--red:#cc0000;--red-h:#e00a0a;--cream:#faf5eb;--cream2:#f2e8d6;--cream3:#e8dcc8;--brown:#2a1a0a;--brown2:#5a4a3a;--brown3:#8a7a6a;--green:#1a7a2e;--gold:#c49a3c;--white:#fff;--r:12px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--cream);color:var(--brown);font-family:'Libre Franklin',sans-serif;min-height:100vh}
+::selection{background:var(--red);color:#fff}
+
+header{background:var(--red);padding:20px;text-align:center;box-shadow:0 4px 20px rgba(204,0,0,.25)}
+.logo{font-family:'Great Vibes',cursive;font-size:2.2rem;color:#fff}
+.logo-sub{font-family:'IBM Plex Mono';font-size:.5rem;color:rgba(255,255,255,.5);letter-spacing:4px;display:block;margin-top:-4px}
+
+.container{max-width:480px;margin:0 auto;padding:24px 16px 60px}
+.welcome{text-align:center;padding:24px 0 20px}
+.welcome h1{font-size:1.15rem;font-weight:700;margin-bottom:6px}
+.welcome p{font-size:.7rem;color:var(--brown3);line-height:1.7}
+
+.card{background:var(--white);border:1.5px solid var(--cream2);border-radius:var(--r);padding:24px;box-shadow:0 2px 8px rgba(42,26,10,.05)}
+
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+label{display:block;font-size:.5rem;color:var(--brown3);margin:14px 0 4px;letter-spacing:.5px;text-transform:uppercase;font-weight:600}
+label:first-child,.row label{margin-top:0}
+input,select{width:100%;padding:10px 12px;background:var(--cream);border:1.5px solid var(--cream2);color:var(--brown);font-family:'Libre Franklin';font-size:.8rem;border-radius:8px;appearance:none;-webkit-appearance:none}
+input:focus,select:focus{outline:none;border-color:var(--red)}
+input::placeholder{color:var(--brown3);opacity:.5}
+
+/* Custom dropdown */
+.select-wrap{position:relative}
+.select-wrap::after{content:'';position:absolute;right:12px;top:50%;transform:translateY(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--brown3);pointer-events:none}
+.select-wrap select{padding-right:32px;cursor:pointer}
+
+/* Tier options styling */
+.tier-info{margin-top:8px;padding:10px 14px;border-radius:8px;font-size:.6rem;line-height:1.6;transition:all .15s}
+.tier-free{background:rgba(26,122,46,.05);border:1px solid rgba(26,122,46,.15);color:var(--green)}
+.tier-coming{background:var(--cream);border:1px solid var(--cream2);color:var(--brown3);font-style:italic}
+
+.divider{height:1px;background:var(--cream2);margin:18px 0}
+
+.error{color:var(--red);font-size:.6rem;margin-top:8px;display:none;text-align:center}
+
+.submit-btn{
+  width:100%;padding:14px;margin-top:18px;border:none;border-radius:var(--r);
+  background:var(--red);color:#fff;font-family:'Libre Franklin';font-size:.85rem;
+  font-weight:700;cursor:pointer;transition:all .12s;letter-spacing:.3px;
+}
+.submit-btn:hover{background:var(--red-h)}
+.submit-btn:disabled{opacity:.4;cursor:default}
+
+/* SUCCESS SCREEN */
+.success{text-align:center;padding:40px 16px}
+.success-icon{
+  width:80px;height:80px;border-radius:50%;
+  background:var(--red);margin:0 auto 20px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(204,0,0,.2);
+}
+.success-icon svg{width:36px;height:36px}
+.success h2{font-family:'Great Vibes',cursive;font-size:2.4rem;color:var(--red);margin-bottom:12px}
+.success .msg{font-size:.78rem;color:var(--brown2);line-height:1.8;margin-bottom:20px}
+.success .msg b{color:var(--brown)}
+.success .box-line{
+  font-family:'IBM Plex Mono';font-size:.6rem;color:var(--brown3);
+  padding:14px 20px;background:var(--cream);border-radius:var(--r);
+  margin:16px auto;max-width:340px;line-height:1.8;
+}
+.success .box-line .highlight{color:var(--red);font-weight:600}
+.success .footer-note{font-size:.55rem;color:var(--brown3);margin-top:20px;line-height:1.6}
+
+footer{text-align:center;padding:20px;font-size:.5rem;color:var(--brown3)}
+footer a{color:var(--red);text-decoration:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Nudge</div>
+  <span class="logo-sub">the Fair Exchange</span>
+</header>
+
+<div class="container">
+  <div id="formView">
+    <div class="welcome">
+      <h1 id="bizName">Book a Session</h1>
+      <p>Tell us a little about yourself and we'll get you set up.</p>
+    </div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>First Name</label>
+          <input id="fFirst" placeholder="First" autocomplete="given-name">
+        </div>
+        <div>
+          <label>Last Name</label>
+          <input id="fLast" placeholder="Last" autocomplete="family-name">
+        </div>
+      </div>
+
+      <label>Phone</label>
+      <input id="fPhone" placeholder="(240) 555-1234" autocomplete="tel">
+
+      <label>Email</label>
+      <input id="fEmail" placeholder="email@example.com" autocomplete="email">
+
+      <div class="divider"></div>
+
+      <label>Session Type</label>
+      <div class="select-wrap">
+        <select id="fTier" onchange="updateTier()">
+          <option value="free">Try for Free</option>
+          <option value="single" disabled>Single Session — $75 (coming soon)</option>
+          <option value="pack" disabled>4-Session Pack — $250 (coming soon)</option>
+        </select>
+      </div>
+      <div class="tier-info tier-free" id="tierInfo">
+        Limited time offer. No payment needed. Just come experience it.
+      </div>
+
+      <div class="error" id="errMsg"></div>
+
+      <button class="submit-btn" id="submitBtn" onclick="doSubmit()">Request Appointment</button>
+    </div>
+  </div>
+
+  <div id="successView" style="display:none">
+    <div class="success">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h2>You're In</h2>
+      <div class="msg" id="successMsg"></div>
+      <div class="box-line">
+        <span class="highlight">What happens next:</span><br>
+        We'll reach out to schedule your session and send you everything you need to know beforehand.<br><br>
+        <span class="highlight">What is The Nothing Box?</span><br>
+        A space where the noise stops. No screens, no scrolling, no thinking about what's next. Just frequencies, data, and you. The box measures. You just sit there.<br><br>
+        That's it. That's the whole thing.
+      </div>
+      <div class="footer-note">Keep an eye on your phone. We'll be in touch.</div>
+    </div>
+  </div>
+</div>
+
+<footer>Powered by <a href="/">Nudge</a> &mdash; The Sol Standard</footer>
+
+<script>
+async function init() {
+  try {
+    var r = await fetch('/api/public/business');
+    var biz = await r.json();
+    if (biz.name) document.getElementById('bizName').textContent = 'Book at ' + biz.name;
+  } catch(e) {}
+}
+
+function updateTier() {
+  var tier = document.getElementById('fTier').value;
+  var info = document.getElementById('tierInfo');
+  if (tier === 'free') {
+    info.className = 'tier-info tier-free';
+    info.textContent = 'Limited time offer. No payment needed. Just come experience it.';
+  } else if (tier === 'single') {
+    info.className = 'tier-info tier-coming';
+    info.textContent = 'Single sessions will be available soon.';
+  } else {
+    info.className = 'tier-info tier-coming';
+    info.textContent = '4-session packs will be available soon.';
+  }
+}
+
+async function doSubmit() {
+  var first = document.getElementById('fFirst').value.trim();
+  var last = document.getElementById('fLast').value.trim();
+  var phone = document.getElementById('fPhone').value.trim();
+  var email = document.getElementById('fEmail').value.trim();
+  var tier = document.getElementById('fTier').value;
+  var err = document.getElementById('errMsg');
+  err.style.display = 'none';
+
+  if (!first || !last) { showErr('Please enter your first and last name'); return }
+  if (!phone && !email) { showErr('Please enter a phone number or email so we can reach you'); return }
+
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').textContent = 'Submitting...';
+
+  try {
+    var r = await fetch('/api/public/inquiry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        first: first, last: last, phone: phone, email: email, tier: tier
+      })
+    });
+    var d = await r.json();
+    if (d.error) {
+      showErr(d.error);
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Request Appointment';
+      return;
+    }
+
+    document.getElementById('successMsg').innerHTML = 'Thanks <b>' + first + '</b>. Your request is in and we\'re on it.';
+    document.getElementById('formView').style.display = 'none';
+    document.getElementById('successView').style.display = 'block';
+    window.scrollTo(0, 0);
+  } catch(e) {
+    showErr('Something went wrong. Please try again.');
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('submitBtn').textContent = 'Request Appointment';
+  }
+}
+
+function showErr(msg) {
+  var el = document.getElementById('errMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+init();
+</script>
+</body>
+</html>

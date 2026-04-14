@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the Sol Standard — Session Information</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050608;--surface:#0a0d10;--card:#0f1215;--border:#1a1e24;--teal:#00e5c7;--teal-dim:rgba(0,229,199,.08);--gold:#e8a44a;--gold-dim:rgba(232,164,74,.08);--text:#e2e4e9;--text2:#9ca3af;--dim:#5c6370;--red:#ef4444;--r:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;line-height:1.8}
+::selection{background:var(--teal);color:var(--bg)}
+
+header{padding:32px 24px;text-align:center;border-bottom:1px solid var(--border)}
+.logo{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;color:var(--text);letter-spacing:2px}
+.logo-accent{color:var(--teal)}
+.logo-sub{font-family:'Space Mono',monospace;font-size:.45rem;color:var(--dim);letter-spacing:4px;display:block;margin-top:4px}
+
+.container{max-width:640px;margin:0 auto;padding:32px 20px 60px}
+
+.page-title{text-align:center;padding:24px 0 20px}
+.page-title h1{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--text);letter-spacing:1px;margin-bottom:6px}
+.page-title p{font-size:.7rem;color:var(--dim)}
+
+.section{margin-bottom:32px}
+.section-label{font-family:'Space Mono',monospace;font-size:.45rem;letter-spacing:3px;color:var(--teal);padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:14px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:12px}
+.card h3{font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-weight:400;margin-bottom:10px;color:var(--text);letter-spacing:.5px}
+.card p{font-size:.7rem;color:var(--text2);margin-bottom:8px}
+.card p:last-child{margin-bottom:0}
+
+.highlight{background:var(--gold-dim);border-left:2px solid var(--gold);padding:14px 16px;border-radius:0 var(--r) var(--r) 0;margin:14px 0;font-size:.68rem;color:var(--text2);line-height:1.9}
+
+.freq-tag{font-family:'Space Mono',monospace;font-size:.5rem;color:var(--teal);padding:3px 8px;background:var(--teal-dim);border-radius:4px;display:inline-block;margin:3px 0}
+
+.warn{background:rgba(239,68,68,.04);border-left:2px solid var(--red);padding:14px 16px;border-radius:0 var(--r) var(--r) 0;margin:12px 0}
+.warn h4{font-size:.65rem;color:var(--red);font-weight:600;margin-bottom:6px;letter-spacing:.5px}
+.warn p{font-size:.65rem;color:var(--text2);margin-bottom:4px}
+.warn p:last-child{margin-bottom:0}
+
+.not-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+.not-card p{font-size:.7rem;color:var(--text2);margin-bottom:6px;padding-left:12px;position:relative}
+.not-card p::before{content:'';position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:var(--red)}
+
+.legal{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin:14px 0}
+.legal p{font-size:.6rem;color:var(--dim);margin-bottom:6px;padding-left:20px;position:relative;line-height:1.9}
+.legal p:last-child{margin-bottom:0}
+.legal p strong{color:var(--text2)}
+.legal-num{position:absolute;left:0;font-family:'Space Mono',monospace;font-size:.5rem;color:var(--teal)}
+
+.divider{height:1px;background:var(--border);margin:28px 0}
+
+.actions{text-align:center;padding:20px 0}
+.actions p{font-size:.65rem;color:var(--dim);margin-bottom:16px}
+.btn-proceed{
+  display:inline-block;padding:14px 44px;border:none;border-radius:var(--r);
+  background:var(--teal);color:var(--bg);font-family:'DM Sans';font-size:.78rem;
+  font-weight:600;cursor:pointer;margin:4px;text-decoration:none;letter-spacing:.3px;
+}
+.btn-proceed:hover{background:#00f5d4}
+.btn-decline{
+  display:inline-block;padding:14px 44px;border:1px solid var(--border);border-radius:var(--r);
+  background:transparent;color:var(--dim);font-family:'DM Sans';font-size:.78rem;
+  font-weight:500;cursor:pointer;margin:4px;text-decoration:none;
+}
+.btn-decline:hover{border-color:var(--dim);color:var(--text2)}
+
+.declined-msg{display:none;text-align:center;padding:48px 20px}
+.declined-msg h2{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:300;color:var(--text2);margin-bottom:12px}
+.declined-msg p{font-size:.7rem;color:var(--dim);line-height:1.8}
+.declined-msg a{color:var(--teal);text-decoration:none}
+
+footer{text-align:center;padding:24px;font-size:.42rem;color:var(--dim);border-top:1px solid var(--border)}
+footer a{color:var(--teal);text-decoration:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">the <span class="logo-accent">Sol</span> Standard</div>
+  <span class="logo-sub">THE NOTHING BOX</span>
+</header>
+
+<div class="container">
+  <div id="infoView">
+    <div class="page-title">
+      <h1>Before We Begin</h1>
+      <p>Please read the following information carefully before scheduling your session.</p>
+    </div>
+
+    <div class="section">
+      <div class="section-label">WHAT WE DO</div>
+      <div class="card">
+        <h3>Electromagnetic Environment Sanitization</h3>
+        <p>The Nothing Box creates a controlled electromagnetic environment using a sealed Faraday cage, precision frequency generators, and multi-sensor data collection. During a session, specific frequencies are introduced into the space while sensors measure your body's natural bioelectric response.</p>
+        <p>The process is called sanitization. The hypothesis is that by creating a quiet electromagnetic space, free from the ambient noise of WiFi, cellular signals, and electronic devices, the body's own electromagnetic signature becomes measurable and may shift in response to introduced frequencies.</p>
+        <div class="highlight">
+          This is a hypothesis, not a proven medical outcome. We do not claim that sanitization treats, cures, or prevents any medical condition. What we offer is an environment and a measurement. What your body does in that environment is between you and your body.
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>The Frequencies</h3>
+        <p>Sessions use a combination of frequencies drawn from several traditions and areas of research:</p>
+        <p><span class="freq-tag">SOLFEGGIO FREQUENCIES</span> A set of tones (174 Hz through 963 Hz) with historical roots in sacred music. Some practitioners and researchers hypothesize that these frequencies interact with the body's bioelectric systems. Peer-reviewed research is limited but growing.</p>
+        <p><span class="freq-tag">EARTH FREQUENCIES</span> The Schumann Resonance (7.83 Hz) and related natural electromagnetic frequencies that exist in the space between the Earth's surface and ionosphere. These are well-documented in geophysics. Their relationship to human biology is an active area of study.</p>
+        <p><span class="freq-tag">THE FARADAY CAGE</span> A sealed metal enclosure that blocks external electromagnetic interference. This is established physics, not a hypothesis. What the Faraday cage does is remove noise. What happens in the quiet is what we measure.</p>
+      </div>
+
+      <div class="card">
+        <h3>What We Measure</h3>
+        <p>During your session, sensors collect data across multiple channels: coil voltage, pickup coil response, ECG (bioelectric), E-field (electrostatic), and 3D magnetic field. This data is analyzed after your session and compiled into a personalized report.</p>
+        <p>The report shows how your body's electromagnetic signature responded to each frequency. Some frequencies may produce strong responses. Others may produce silence. Both are meaningful. The data belongs to you.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">WHAT THIS IS NOT</div>
+      <div class="not-card">
+        <p>This is not a medical treatment, diagnosis, or cure for any condition.</p>
+        <p>This is not a substitute for professional medical advice, therapy, or prescribed treatment.</p>
+        <p>This does not involve therapeutic radiation, tissue penetration, or biological alteration.</p>
+        <p>We make no claims about health outcomes. We create an environment. We measure a response. We present the data. The interpretation is yours.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">MEDICAL INFORMATION</div>
+      <div class="warn">
+        <h4>Absolute Contraindications</h4>
+        <p><strong style="color:var(--red)">Pacemakers or implanted defibrillators:</strong> Electromagnetic fields may interfere with cardiac devices. If you have any implanted cardiac device, you cannot participate. No exceptions.</p>
+        <p><strong style="color:var(--red)">Insulin pumps or implanted medical devices:</strong> Any implanted electronic device may be affected. Please disclose all implanted devices before proceeding.</p>
+      </div>
+      <div class="warn">
+        <h4>Please Inform Your Practitioner</h4>
+        <p>Pregnancy or suspected pregnancy</p>
+        <p>Epilepsy or seizure disorders</p>
+        <p>Recent surgery or open wounds</p>
+        <p>Any condition that may be affected by electromagnetic exposure</p>
+        <p>Medications that affect heart rhythm or neurological function</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">ACKNOWLEDGMENT &amp; LIABILITY</div>
+      <div class="legal">
+        <p><strong>By proceeding, you acknowledge that:</strong></p>
+        <p><span class="legal-num">1</span>This session is a wellness experience, not a medical treatment.</p>
+        <p><span class="legal-num">2</span>the Sol Standard and its practitioners make no claims regarding health outcomes, cures, or treatments.</p>
+        <p><span class="legal-num">3</span>You have disclosed any implanted medical devices, cardiac conditions, pregnancy, epilepsy, or other relevant medical information.</p>
+        <p><span class="legal-num">4</span>You understand that sensors will measure your body's bioelectric response during the session and that this data will be collected and used to generate your personalized report.</p>
+        <p><span class="legal-num">5</span>You assume any and all risks associated with participation in this experience.</p>
+        <p><span class="legal-num">6</span>You release the Sol Standard, its practitioners, and affiliated parties from any liability arising from your participation.</p>
+        <p><span class="legal-num">7</span>If you experience dizziness, chest pain, shortness of breath, heart palpitations, numbness, severe headache, fainting, seizure activity, or any symptom that feels medically urgent during or after a session, you will discontinue immediately and seek medical attention.</p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="actions">
+      <p>By clicking below, you confirm that you have read and understood all of the above information.</p>
+      <div>
+        <a class="btn-proceed" onclick="proceed()">I'd like to proceed</a>
+        <a class="btn-decline" onclick="decline()">Not for me</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="declinedView" class="declined-msg">
+    <h2>No worries at all</h2>
+    <p>Thanks for taking the time to read through everything. If you change your mind or have questions, you can always reach us.</p>
+    <p style="margin-top:12px"><a href="tel:+12403563393">(240) 356-3393</a></p>
+    <p style="margin-top:4px"><a href="mailto:hello@thesolstandard.com">hello@thesolstandard.com</a></p>
+  </div>
+</div>
+
+<footer>the Sol Standard &middot; The Nothing Box<br>Powered by <a href="#">Nudge</a> &mdash; the Fair Exchange</footer>
+
+<script>
+var TOKEN = window.location.pathname.split('/welcome/')[1] || '';
+function proceed() {
+  fetch('/api/client/' + TOKEN + '/consent', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({consented: true, timestamp: new Date().toISOString()})
+  }).then(function() { window.location.href = '/onboard/' + TOKEN; })
+    .catch(function() { window.location.href = '/onboard/' + TOKEN; });
+}
+function decline() {
+  document.getElementById('infoView').style.display = 'none';
+  document.getElementById('declinedView').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

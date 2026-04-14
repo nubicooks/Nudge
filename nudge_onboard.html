@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>the Sol Standard — Welcome</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050608;--surface:#0a0d10;--card:#0f1215;--border:#1a1e24;--teal:#00e5c7;--teal-dim:rgba(0,229,199,.08);--gold:#e8a44a;--gold-dim:rgba(232,164,74,.08);--text:#e2e4e9;--text2:#9ca3af;--dim:#5c6370;--red:#ef4444;--r:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;line-height:1.8}
+::selection{background:var(--teal);color:var(--bg)}
+
+header{padding:32px 24px;text-align:center;border-bottom:1px solid var(--border)}
+.logo{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:300;color:var(--text);letter-spacing:2px}
+.logo-accent{color:var(--teal)}
+.logo-sub{font-family:'Space Mono',monospace;font-size:.45rem;color:var(--dim);letter-spacing:4px;display:block;margin-top:4px}
+
+.container{max-width:640px;margin:0 auto;padding:32px 20px 60px}
+.page-title{text-align:center;padding:24px 0 20px}
+.page-title h1{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--text);letter-spacing:1px;margin-bottom:6px}
+.page-title p{font-size:.7rem;color:var(--dim)}
+
+.section{margin-bottom:28px}
+.section-label{font-family:'Space Mono',monospace;font-size:.45rem;letter-spacing:3px;color:var(--teal);padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:14px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:12px}
+.card h3{font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-weight:400;margin-bottom:10px;color:var(--text);letter-spacing:.5px}
+
+.step{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px}
+.step-num{width:30px;height:30px;border-radius:50%;background:var(--teal-dim);border:1px solid rgba(0,229,199,.2);color:var(--teal);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;flex-shrink:0;margin-top:2px}
+.step-text h4{font-size:.75rem;font-weight:600;margin-bottom:2px;color:var(--text)}
+.step-text p{font-size:.65rem;color:var(--text2)}
+
+.time-box{text-align:center;padding:20px;background:var(--gold-dim);border:1px solid rgba(232,164,74,.15);border-radius:var(--r);margin:16px 0}
+.time-box .big{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:300;color:var(--gold)}
+.time-box .sub{font-size:.55rem;color:var(--dim);margin-top:2px}
+
+.checklist{list-style:none;padding:0;margin:8px 0}
+.checklist li{font-size:.68rem;color:var(--text2);padding:8px 0 8px 28px;border-bottom:1px solid var(--border);position:relative}
+.checklist li:last-child{border-bottom:none}
+.checklist li::before{content:'';position:absolute;left:6px;top:12px;width:10px;height:10px;border-radius:50%;border:1.5px solid var(--border)}
+
+.remind{background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.1);border-radius:var(--r);padding:16px}
+.remind p{font-size:.62rem;color:var(--text2);margin-bottom:4px}
+.remind p:first-child{font-size:.65rem;color:var(--red);font-weight:600;margin-bottom:8px}
+
+.divider{height:1px;background:var(--border);margin:28px 0}
+
+/* Booking section transitions to Nudge energy */
+.book-section{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-top:8px}
+.book-section h3{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:400;color:var(--text);margin-bottom:4px}
+.book-section .book-sub{font-size:.6rem;color:var(--dim);margin-bottom:14px}
+
+.dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.45rem;font-weight:600;color:var(--dim);padding:2px 0 4px;font-family:'Space Mono',monospace}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.mday{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:6px;font-size:.65rem;font-weight:500;cursor:pointer;color:var(--text2)}
+.mday:hover{background:var(--surface)}.mday.other{opacity:.2}.mday.today{background:var(--teal-dim);color:var(--teal);font-weight:700}.mday.sel{background:var(--teal);color:var(--bg)}.mday.past{opacity:.1;cursor:default}
+
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-nav h4{font-size:.75rem;color:var(--text)}
+.cn-btn{width:26px;height:26px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--dim);font-size:.75rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.cn-btn:hover{border-color:var(--teal);color:var(--teal)}
+
+.sel-date-label{font-size:.7rem;font-weight:500;color:var(--text);margin:10px 0 6px}
+.time-slots{display:flex;flex-wrap:wrap;gap:5px}
+.ts{padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-family:'Space Mono',monospace;font-size:.6rem;cursor:pointer;background:var(--surface);color:var(--teal);transition:all .1s}
+.ts:hover{border-color:var(--teal);background:var(--teal-dim)}
+.ts.taken{opacity:.15;cursor:default;pointer-events:none;color:var(--dim)}
+.ts.sel{border-color:var(--teal);background:var(--teal);color:var(--bg);font-weight:700}
+
+.book-btn{
+  width:100%;padding:14px;margin-top:16px;border:none;border-radius:var(--r);
+  background:var(--teal);color:var(--bg);font-family:'DM Sans';font-size:.82rem;
+  font-weight:600;cursor:pointer;letter-spacing:.3px;
+}
+.book-btn:hover{background:#00f5d4}
+.book-btn:disabled{opacity:.2;cursor:default}
+
+.success{display:none;text-align:center;padding:48px 16px}
+.success h2{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:var(--teal);margin-bottom:12px}
+.success p{font-size:.75rem;color:var(--text2);line-height:1.8;margin-bottom:8px}
+.success .portal-btn{display:inline-block;padding:12px 28px;background:var(--teal);color:var(--bg);text-decoration:none;border-radius:var(--r);font-weight:600;font-size:.75rem;margin-top:12px}
+
+footer{text-align:center;padding:24px;font-size:.42rem;color:var(--dim);border-top:1px solid var(--border)}
+footer a{color:var(--teal);text-decoration:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">the <span class="logo-accent">Sol</span> Standard</div>
+  <span class="logo-sub">THE NOTHING BOX</span>
+</header>
+
+<div class="container">
+  <div id="mainView">
+    <div class="page-title">
+      <h1>Welcome</h1>
+      <p>Here's everything you need to know before your session.</p>
+    </div>
+
+    <div class="section">
+      <div class="section-label">YOUR SESSION</div>
+      <div class="card">
+        <h3>What Happens</h3>
+        <div class="step"><div class="step-num">1</div><div class="step-text"><h4>You lay down</h4><p>On a massage table, fully clothed, eyes closed if you'd like. That's the hardest part.</p></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text"><h4>Frequencies play</h4><p>The Nothing Box introduces specific frequencies into the space. You may hear a faint hum. You may feel a subtle warmth or tingling. You may feel nothing at all. All normal.</p></div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text"><h4>Sensors measure</h4><p>Small sensors near your wrists and around the box measure how your body's electromagnetic signature responds. This is passive measurement. Nothing enters your body.</p></div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text"><h4>You receive your report</h4><p>After your session, the data is analyzed and compiled into a personalized report. The report is yours to keep.</p></div></div>
+      </div>
+      <div class="time-box">
+        <div class="big">45 minutes</div>
+        <div class="sub">Total session time including setup and breakdown</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">WHAT WE NEED FROM YOU</div>
+      <div class="card">
+        <h3>Before Your Session</h3>
+        <ul class="checklist">
+          <li>A quiet room. The session requires minimal noise and interruption for the full 45 minutes.</li>
+          <li>If children are present in the home, please arrange for them to be in another room for the duration.</li>
+          <li>Enough space for a massage table. Roughly 6 feet by 3 feet of open floor space.</li>
+          <li>Comfortable, loose-fitting clothing. No metal jewelry, watches, or belts during the session.</li>
+          <li>No heavy meals within 30 minutes. Light and hydrated is ideal.</li>
+          <li>Phone on silent and in another room if possible.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">REMINDERS</div>
+      <div class="remind">
+        <p>Please remember:</p>
+        <p>No pacemakers, implanted defibrillators, insulin pumps, or implanted electronic medical devices.</p>
+        <p>This is a wellness experience, not a medical treatment. If anything feels wrong, say so immediately and we stop.</p>
+        <p>You can end the session at any time for any reason. No questions asked.</p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <div class="section-label">BOOK YOUR SESSION</div>
+      <div class="book-section">
+        <h3>Pick a Date and Time</h3>
+        <div class="book-sub">Choose from available slots below.</div>
+        <div class="cal-nav">
+          <button class="cn-btn" onclick="calNav(-1)">&lsaquo;</button>
+          <h4 id="calTitle"></h4>
+          <div style="display:flex;gap:3px"><button class="cn-btn" onclick="calToday()">&bull;</button><button class="cn-btn" onclick="calNav(1)">&rsaquo;</button></div>
+        </div>
+        <div class="dow"><div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div></div>
+        <div class="mgrid" id="calGrid"></div>
+        <div class="sel-date-label" id="selDateLabel"></div>
+        <div class="time-slots" id="timeSlots"></div>
+        <button class="book-btn" id="bookBtn" onclick="doBook()" disabled>Select a date and time</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="successView" class="success">
+    <h2>You're Booked</h2>
+    <p id="confirmText"></p>
+    <p style="font-size:.6rem;color:var(--dim)">A confirmation has been sent. From your portal you can view appointments, reports, and manage your bookings.</p>
+    <a class="portal-btn" id="portalBtn" href="#">View Your Portal</a>
+  </div>
+</div>
+
+<footer>the Sol Standard &middot; The Nothing Box<br>Powered by <a href="#">Nudge</a> &mdash; the Fair Exchange</footer>
+
+<script>
+var TOKEN = window.location.pathname.split('/onboard/')[1] || '';
+var API = '/api/client/' + TOKEN;
+var calDt = new Date(), selDate = new Date(), selSlot = null, PROF = {};
+
+async function init() {
+  if (!TOKEN) { document.querySelector('.container').innerHTML = '<div style="text-align:center;padding:60px;color:#5c6370">Invalid link.</div>'; return; }
+  try { var r = await fetch(API + '/profile'); if (!r.ok) throw 0; PROF = await r.json(); drawCal(); }
+  catch(e) { document.querySelector('.container').innerHTML = '<div style="text-align:center;padding:60px;color:#5c6370">This link is no longer valid.</div>'; }
+}
+
+function fd(d){return d.toISOString().slice(0,10)}
+function isSame(a,b){return fd(a)===fd(b)}
+function isToday(d){return isSame(d,new Date())}
+function isPast(d){var t=new Date();t.setHours(0,0,0,0);return d<t}
+
+function drawCal(){
+  var y=calDt.getFullYear(),m=calDt.getMonth();
+  document.getElementById('calTitle').textContent=calDt.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  var first=new Date(y,m,1),last=new Date(y,m+1,0),sd=first.getDay();
+  var h='';
+  for(var i=0;i<sd;i++)h+='<div class="mday other">'+(new Date(y,m,-(sd-1-i))).getDate()+'</div>';
+  for(var d=1;d<=last.getDate();d++){var dt=new Date(y,m,d);var cls='mday';if(isPast(dt))cls+=' past';else{if(isToday(dt))cls+=' today';if(isSame(dt,selDate))cls+=' sel'}if(!isPast(dt))h+='<div class="'+cls+'" onclick="pickDay('+y+','+m+','+d+')">'+d+'</div>';else h+='<div class="'+cls+'">'+d+'</div>'}
+  var tc=sd+last.getDate(),rem=tc%7===0?0:7-tc%7;
+  for(var i=1;i<=rem;i++)h+='<div class="mday other">'+i+'</div>';
+  document.getElementById('calGrid').innerHTML=h;loadSlots(selDate);
+}
+function calNav(dir){calDt.setMonth(calDt.getMonth()+dir);drawCal()}
+function calToday(){calDt=new Date();selDate=new Date();drawCal()}
+function pickDay(y,m,d){selDate=new Date(y,m,d);calDt=new Date(y,m,d);drawCal()}
+
+async function loadSlots(date){
+  selSlot=null;document.getElementById('bookBtn').disabled=true;document.getElementById('bookBtn').textContent='Select a time';
+  document.getElementById('selDateLabel').textContent=date.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  try{var r=await fetch(API+'/available/'+fd(date));var slots=await r.json();var h='';
+  slots.forEach(function(s){if(s.status==='blocked'||s.is_yours)return;if(s.label==='Booked'||s.client_id)h+='<div class="ts taken">'+s.time+'</div>';else h+='<div class="ts" onclick="pickTime('+s.id+',\''+s.time.replace("'","\\'")+'\',this)">'+s.time+'</div>'});
+  document.getElementById('timeSlots').innerHTML=h||'<div style="font-size:.6rem;color:#5c6370;padding:8px">No available times.</div>'}catch(e){document.getElementById('timeSlots').innerHTML='<div style="font-size:.6rem;color:#ef4444;padding:8px">Failed to load.</div>'}
+}
+function pickTime(id,time,el){selSlot=id;document.querySelectorAll('.ts').forEach(function(t){t.classList.remove('sel')});el.classList.add('sel');document.getElementById('bookBtn').disabled=false;document.getElementById('bookBtn').textContent='Book '+time}
+
+async function doBook(){
+  if(!selSlot)return;document.getElementById('bookBtn').disabled=true;document.getElementById('bookBtn').textContent='Booking...';
+  try{var r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slot_id:selSlot})});var d=await r.json();
+  if(d.error){alert(d.error);document.getElementById('bookBtn').disabled=false;document.getElementById('bookBtn').textContent='Try again';return}
+  document.getElementById('confirmText').textContent='Your session is confirmed for '+selDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})+'. We\'ll see you there, '+PROF.name.split(' ')[0]+'.';
+  document.getElementById('portalBtn').href='/me/'+TOKEN;document.getElementById('mainView').style.display='none';document.getElementById('successView').style.display='block';window.scrollTo(0,0)}
+  catch(e){alert('Something went wrong.');document.getElementById('bookBtn').disabled=false;document.getElementById('bookBtn').textContent='Try again'}
+}
+init();
+</script>
+</body>
+</html>
