@@ -215,6 +215,7 @@ async function doBook(){
   if(!selSlot)return;document.getElementById('bookBtn').disabled=true;document.getElementById('bookBtn').textContent='Booking...';
   try{var r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slot_id:selSlot})});var d=await r.json();
   if(d.error){alert(d.error);document.getElementById('bookBtn').disabled=false;document.getElementById('bookBtn').textContent='Try again';return}
+  if(d.status==='checkout'&&d.checkout_url){document.getElementById('bookBtn').textContent='Redirecting to payment...';window.location.href=d.checkout_url;return}
   document.getElementById('confirmText').textContent='Your session is confirmed for '+selDate.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})+'. We\'ll see you there, '+PROF.name.split(' ')[0]+'.';
   document.getElementById('portalBtn').href='/me/'+TOKEN;document.getElementById('mainView').style.display='none';document.getElementById('successView').style.display='block';window.scrollTo(0,0)}
   catch(e){alert('Something went wrong.');document.getElementById('bookBtn').disabled=false;document.getElementById('bookBtn').textContent='Try again'}

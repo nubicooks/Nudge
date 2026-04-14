@@ -931,19 +931,55 @@ def c_nudge(token):
 def c_book(token):
     d = request.json; db = get_db(); biz = g.biz
     slot_id = d.get('slot_id')
-    slot = db.execute("SELECT * FROM slots WHERE id=? AND biz_id=? AND client_id IS NULL AND status!='blocked'",
+    slot = db.execute("SELECT * FROM slots WHERE id=? AND biz_id=? AND client_id IS NULL AND status NOT IN ('blocked','held')",
         (slot_id, g.biz_id)).fetchone()
     if not slot: return jsonify({'error':'Slot not available'}), 400
     price = biz['session_price']
-    db.execute("UPDATE slots SET client_id=?,service='Nothing Box Session',price=?,status='booked' WHERE id=?",
-        (g.client_id, price, slot_id))
-    inv_token = gen_token()
-    db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token) VALUES (?,?,?,?,?)",
-        (g.biz_id, g.client_id, slot_id, price, inv_token))
-    db.commit()
-    if g.client.get('phone'):
-        send_sms(g.client['phone'], f"Hi {g.client['name'].split()[0]}! Confirmed: {slot['time']} on {slot['date']} at {biz['name']}.", biz_id=g.biz_id)
-    return jsonify({'status':'booked','slot_id':slot_id})
+    is_free = 'Try for Free' in (g.client.get('notes') or '')
+
+    if USE_STRIPE and not is_free and price > 0:
+        # Hold slot while client pays
+        db.execute("UPDATE slots SET client_id=?,status='held',service='Nothing Box Session',price=? WHERE id=?",
+            (g.client_id, price, slot_id))
+        db.commit()
+        inv_token = gen_token()
+        try:
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'unit_amount': int(price * 100),
+                        'product_data': {
+                            'name': 'Nothing Box Session',
+                            'description': f"{slot['date']} at {slot['time']}",
+                        },
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                customer_email=g.client.get('email') or None,
+                metadata={'slot_id': str(slot_id), 'client_id': str(g.client_id), 'biz_id': str(g.biz_id), 'inv_token': inv_token, 'client_token': g.client.get('token','')},
+                success_url=BASE_URL + '/api/stripe/book-success?session_id={CHECKOUT_SESSION_ID}',
+                cancel_url=BASE_URL + '/api/stripe/book-cancel?slot_id=' + str(slot_id) + '&token=' + g.client.get('token',''),
+            )
+            return jsonify({'status': 'checkout', 'checkout_url': session.url})
+        except Exception as e:
+            # Release hold on error
+            db.execute("UPDATE slots SET client_id=NULL,status='open',service=NULL,price=0 WHERE id=?", (slot_id,))
+            db.commit()
+            return jsonify({'error': f'Payment setup failed: {e}'}), 500
+    else:
+        # Free tier or no Stripe — book directly
+        db.execute("UPDATE slots SET client_id=?,service='Nothing Box Session',price=?,status='booked' WHERE id=?",
+            (g.client_id, price if not is_free else 0, slot_id))
+        inv_token = gen_token()
+        db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token,status) VALUES (?,?,?,?,?,?)",
+            (g.biz_id, g.client_id, slot_id, price if not is_free else 0, inv_token, 'paid' if is_free else 'unpaid'))
+        db.commit()
+        if g.client.get('phone'):
+            send_sms(g.client['phone'], f"Hi {g.client['name'].split()[0]}! Confirmed: {slot['time']} on {slot['date']} at {biz['name']}.", biz_id=g.biz_id)
+        return jsonify({'status':'booked','slot_id':slot_id})
 
 @app.route('/api/client/<token>/nudge/<int:nid>/respond', methods=['POST'])
 @require_client
@@ -1190,6 +1226,50 @@ def stripe_webhook():
 def stripe_config():
     return jsonify({'pk': STRIPE_PK if USE_STRIPE else '', 'enabled': USE_STRIPE})
 
+@app.route('/api/stripe/book-success')
+def stripe_book_success():
+    session_id = request.args.get('session_id')
+    if not session_id or not USE_STRIPE:
+        return redirect('/')
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        if session.payment_status == 'paid':
+            meta = session.metadata
+            slot_id = int(meta['slot_id'])
+            client_id = int(meta['client_id'])
+            biz_id = int(meta['biz_id'])
+            inv_token = meta.get('inv_token', gen_token())
+            client_token = meta.get('client_token', '')
+            db = sqlite3.connect(DB_PATH); db.row_factory = sqlite3.Row
+            # Confirm booking
+            db.execute("UPDATE slots SET status='booked' WHERE id=? AND status='held'", (slot_id,))
+            # Create paid invoice
+            amount = session.amount_total / 100
+            db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token,status,paid_at) VALUES (?,?,?,?,?,'paid',CURRENT_TIMESTAMP)",
+                (biz_id, client_id, slot_id, amount, inv_token))
+            db.commit()
+            client = db.execute("SELECT * FROM clients WHERE id=?", (client_id,)).fetchone()
+            slot = db.execute("SELECT * FROM slots WHERE id=?", (slot_id,)).fetchone()
+            biz = db.execute("SELECT * FROM businesses WHERE id=?", (biz_id,)).fetchone()
+            db.close()
+            if client and client['phone']:
+                send_sms_direct(client['phone'], f"Payment received! Confirmed: {slot['time']} on {slot['date']} at {biz['name']}.")
+            print(f"\n  *** BOOKING PAID: {client['name'] if client else '?'} — {slot['date']} {slot['time']} — ${amount:.2f} ***\n")
+            return redirect(f'/me/{client_token}' if client_token else '/')
+    except Exception as e:
+        print(f"  Stripe book-success error: {e}")
+    return redirect('/')
+
+@app.route('/api/stripe/book-cancel')
+def stripe_book_cancel():
+    slot_id = request.args.get('slot_id')
+    client_token = request.args.get('token', '')
+    if slot_id:
+        db = sqlite3.connect(DB_PATH)
+        db.execute("UPDATE slots SET client_id=NULL,status='open',service=NULL,price=0 WHERE id=? AND status='held'", (int(slot_id),))
+        db.commit(); db.close()
+    return redirect(f'/me/{client_token}' if client_token else '/')
+
 def send_sms_direct(to_phone, body):
     """Send SMS without Flask request context (for Stripe callback)"""
     if USE_TWILIO and to_phone:
@@ -1240,6 +1320,9 @@ def expire_nudges():
             db.execute("UPDATE nudges SET status='expired',resolved_at=CURRENT_TIMESTAMP WHERE id=?", (n['id'],))
             fc = db.execute("SELECT * FROM clients WHERE id=?", (n['from_client_id'],)).fetchone()
             if fc and fc['phone']: send_sms(fc['phone'], "Your nudge offer expired.", biz_id=n['biz_id'])
+        # Release held slots older than 15 minutes (abandoned Stripe checkouts)
+        cutoff = (datetime.now() - timedelta(minutes=15)).isoformat()
+        db.execute("UPDATE slots SET client_id=NULL,status='open',service=NULL,price=0 WHERE status='held' AND created_at<?", (cutoff,))
         db.commit()
     except: pass
 

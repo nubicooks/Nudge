@@ -346,7 +346,9 @@ function pickFee(p,el){selFee=PRICE*p/100;document.querySelectorAll('.oo').forEa
 
 async function doBook(){
   var r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slot_id:selSlot})});
-  var d=await r.json();if(d.error){alert(d.error);return}location.reload();
+  var d=await r.json();if(d.error){alert(d.error);return}
+  if(d.status==='checkout'&&d.checkout_url){window.location.href=d.checkout_url;return}
+  location.reload();
 }
 
 async function doNudge(){
