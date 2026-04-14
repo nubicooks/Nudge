@@ -202,6 +202,7 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
           <option value="deleted">Deleted</option>
         </select>
         <button class="btn btn-gray" style="font-size:.45rem;padding:3px 8px" onclick="exportCSV('clients')">Export CSV</button>
+        <button class="btn btn-g" style="font-size:.45rem;padding:3px 8px" onclick="openAddClient()">+ Add Client</button>
       </div>
     </div>
     <div style="padding:0">
@@ -236,6 +237,33 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 <div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
 
 <div class="mbg" id="mDelete"><div class="mdl"><h3 style="color:var(--red)">Delete Client</h3><p id="delInfo" style="font-size:.7rem;color:var(--brown2);margin-bottom:10px"></p><label>Reason (optional)</label><textarea id="delReason" placeholder="Why are you removing this client?"></textarea><p style="font-size:.55rem;color:var(--brown3);margin-top:8px">Their upcoming appointments will be cancelled. You can restore them later from the Deleted filter.</p><div class="mdl-a"><button class="btn btn-o" onclick="cm('mDelete')">Cancel</button><button class="btn btn-warn" onclick="doDelete()">Delete Client</button></div></div></div>
+
+<div class="mbg" id="mAddClient"><div class="mdl" style="max-width:520px">
+  <h3>Add Client</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><label>First Name *</label><input id="acFirst" placeholder="First"></div>
+    <div><label>Last Name *</label><input id="acLast" placeholder="Last"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div><label>Phone *</label><input id="acPhone" placeholder="(240) 555-1234"></div>
+    <div><label>Email *</label><input id="acEmail" placeholder="email@example.com"></div>
+  </div>
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--cream2)">
+    <div style="font-size:.5rem;font-weight:600;letter-spacing:1px;color:var(--brown3);margin-bottom:6px">OPTIONAL DEMOGRAPHICS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label>Date of Birth</label><input id="acDob" type="date"></div>
+      <div><label>Gender</label><select id="acGender" style="width:100%;padding:8px 10px;border:1.5px solid var(--cream3);border-radius:6px;font-family:'Libre Franklin';font-size:.7rem;background:var(--white)"><option value="">—</option><option value="Male">Male</option><option value="Female">Female</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></div>
+    </div>
+    <label>Address</label><input id="acAddress" placeholder="Street, City, State, ZIP">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label>Emergency Contact</label><input id="acEmName" placeholder="Full name"></div>
+      <div><label>Emergency Phone</label><input id="acEmPhone" placeholder="(240) 555-0000"></div>
+    </div>
+    <label>Medical Notes</label><textarea id="acMedical" placeholder="Pacemaker, epilepsy, pregnancy, medications, etc." style="min-height:50px"></textarea>
+    <label>Internal Notes</label><textarea id="acNotes" placeholder="Your private notes about this client" style="min-height:40px"></textarea>
+  </div>
+  <div class="mdl-a"><button class="btn btn-o" onclick="cm('mAddClient')">Cancel</button><button class="btn btn-g" onclick="doAddClient()">Add Client</button></div>
+</div></div>
 
 <style>
 .ch-row{padding:10px 12px;border-bottom:1px solid var(--cream2);cursor:pointer;display:flex;gap:8px;align-items:center}
@@ -410,6 +438,21 @@ async function openClient(cid){
   h+='</div>';
   h+='<label>Notes</label><textarea id="cdNotes" style="margin-bottom:12px">'+(c.notes||'')+'</textarea>';
   h+='<button class="btn btn-o" style="margin-bottom:12px" onclick="saveNotes('+c.id+')">Save Notes</button>';
+  // ── DEMOGRAPHICS ──
+  h+='<div style="margin-bottom:12px;padding:10px;background:var(--cream);border-radius:8px">';
+  h+='<div style="font-weight:700;font-size:.5rem;letter-spacing:1px;color:var(--brown3);margin-bottom:6px">DEMOGRAPHICS</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+  h+='<div><label style="font-size:.45rem">DOB</label><input id="cdDob" type="date" value="'+(c.dob||'')+'" style="width:100%;padding:4px 6px;border:1px solid var(--cream3);border-radius:4px;font-size:.6rem;background:var(--white)"></div>';
+  h+='<div><label style="font-size:.45rem">Gender</label><select id="cdGender" style="width:100%;padding:4px 6px;border:1px solid var(--cream3);border-radius:4px;font-size:.6rem;background:var(--white)"><option value="">—</option><option value="Male"'+(c.gender==='Male'?' selected':'')+'>Male</option><option value="Female"'+(c.gender==='Female'?' selected':'')+'>Female</option><option value="Non-binary"'+(c.gender==='Non-binary'?' selected':'')+'>Non-binary</option><option value="Prefer not to say"'+(c.gender==='Prefer not to say'?' selected':'')+'>Prefer not to say</option></select></div>';
+  h+='</div>';
+  h+='<label style="font-size:.45rem">Address</label><input id="cdAddress" value="'+(c.address||'')+'" style="width:100%;padding:4px 6px;border:1px solid var(--cream3);border-radius:4px;font-size:.6rem;background:var(--white)" placeholder="Street, City, State">';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+  h+='<div><label style="font-size:.45rem">Emergency Contact</label><input id="cdEmName" value="'+(c.emergency_contact||'')+'" style="width:100%;padding:4px 6px;border:1px solid var(--cream3);border-radius:4px;font-size:.6rem;background:var(--white)"></div>';
+  h+='<div><label style="font-size:.45rem">Emergency Phone</label><input id="cdEmPhone" value="'+(c.emergency_phone||'')+'" style="width:100%;padding:4px 6px;border:1px solid var(--cream3);border-radius:4px;font-size:.6rem;background:var(--white)"></div>';
+  h+='</div>';
+  h+='<label style="font-size:.45rem">Medical Notes</label><textarea id="cdMedical" style="width:100%;padding:4px 6px;border:1px solid var(--cream3);border-radius:4px;font-size:.6rem;background:var(--white);min-height:36px" placeholder="Pacemaker, epilepsy, medications...">'+(c.medical_notes||'')+'</textarea>';
+  h+='<button class="btn btn-o" style="margin-top:6px;font-size:.45rem;padding:3px 10px" onclick="saveDemographics('+c.id+')">Save Demographics</button>';
+  h+='</div>';
   if(rv.length){
     h+='<div style="font-weight:700;font-size:.65rem;margin-bottom:6px;color:var(--gold)">Reviews ('+rv.length+')</div>';
     rv.forEach(function(r){
@@ -597,6 +640,27 @@ async function loadSMS(){
 
 // ═══ EXPORT ═══
 function exportCSV(type){window.open(A+'/export/'+type,'_blank')}
+
+// ═══ ADD CLIENT ═══
+function openAddClient(){['acFirst','acLast','acPhone','acEmail','acAddress','acEmName','acEmPhone','acNotes'].forEach(function(id){document.getElementById(id).value=''});document.getElementById('acDob').value='';document.getElementById('acGender').value='';document.getElementById('acMedical').value='';document.getElementById('mAddClient').classList.add('show')}
+async function doAddClient(){
+  var first=document.getElementById('acFirst').value.trim();var last=document.getElementById('acLast').value.trim();
+  if(!first||!last){alert('First and last name required');return}
+  var r=await fetch(A+'/clients/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    first:first,last:last,phone:document.getElementById('acPhone').value.trim(),email:document.getElementById('acEmail').value.trim(),
+    dob:document.getElementById('acDob').value,gender:document.getElementById('acGender').value,
+    address:document.getElementById('acAddress').value.trim(),emergency_contact:document.getElementById('acEmName').value.trim(),
+    emergency_phone:document.getElementById('acEmPhone').value.trim(),medical_notes:document.getElementById('acMedical').value.trim(),
+    notes:document.getElementById('acNotes').value.trim()
+  })});var d=await r.json();if(d.error){alert(d.error);return}cm('mAddClient');loadClientTable();alert(first+' '+last+' added!')
+}
+async function saveDemographics(cid){
+  await fetch(A+'/clients/'+cid+'/demographics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    dob:document.getElementById('cdDob').value,gender:document.getElementById('cdGender').value,
+    address:document.getElementById('cdAddress').value.trim(),emergency_contact:document.getElementById('cdEmName').value.trim(),
+    emergency_phone:document.getElementById('cdEmPhone').value.trim(),medical_notes:document.getElementById('cdMedical').value.trim()
+  })});alert('Demographics saved');openClient(cid)
+}
 
 // ═══ DELETE / RESTORE ═══
 var deleteId=0;

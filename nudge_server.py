@@ -99,6 +99,12 @@ def init_db():
         status TEXT DEFAULT 'active',
         deleted_at TIMESTAMP,
         delete_reason TEXT,
+        dob TEXT,
+        gender TEXT,
+        address TEXT,
+        emergency_contact TEXT,
+        emergency_phone TEXT,
+        medical_notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS slots (
@@ -190,7 +196,7 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(biz_id, client_id);
     """)
     # Migrate existing databases — add new columns safely
-    for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL')]:
+    for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL'),('dob','TEXT','NULL'),('gender','TEXT','NULL'),('address','TEXT','NULL'),('emergency_contact','TEXT','NULL'),('emergency_phone','TEXT','NULL'),('medical_notes','TEXT','NULL')]:
         try: db.execute(f"ALTER TABLE clients ADD COLUMN {col} {ctype} DEFAULT {default}")
         except: pass
     cur = db.execute("SELECT COUNT(*) FROM businesses")
@@ -731,6 +737,51 @@ def a_clients():
         GROUP BY c.id ORDER BY c.name
     """, (g.biz_id,)).fetchall()
     return jsonify([dict(r) for r in rows])
+
+@app.route('/api/admin/clients/add', methods=['POST'])
+@require_admin
+def a_add_client():
+    d = request.json; db = get_db()
+    first = (d.get('first','') or '').strip()
+    last = (d.get('last','') or '').strip()
+    if not first or not last: return jsonify({'error': 'First and last name required'}), 400
+    name = first + ' ' + last
+    phone = (d.get('phone','') or '').strip()
+    email = (d.get('email','') or '').strip()
+    # Check if client already exists
+    existing = db.execute("SELECT * FROM clients WHERE biz_id=? AND name=? COLLATE NOCASE", (g.biz_id, name)).fetchone()
+    if existing: return jsonify({'error': f'{name} already exists'}), 400
+    token = gen_token()
+    db.execute("""INSERT INTO clients (biz_id,name,phone,email,token,dob,gender,address,emergency_contact,emergency_phone,medical_notes,notes)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (g.biz_id, name, phone, email, token,
+         (d.get('dob','') or '').strip() or None,
+         (d.get('gender','') or '').strip() or None,
+         (d.get('address','') or '').strip() or None,
+         (d.get('emergency_contact','') or '').strip() or None,
+         (d.get('emergency_phone','') or '').strip() or None,
+         (d.get('medical_notes','') or '').strip() or None,
+         d.get('notes','').strip() or None))
+    cid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    db.commit()
+    print(f"\n  *** CLIENT ADDED: {name} (#{cid}) ***\n")
+    return jsonify({'status': 'created', 'client_id': cid, 'token': token})
+
+@app.route('/api/admin/clients/<int:cid>/demographics', methods=['POST'])
+@require_admin
+def a_client_demographics(cid):
+    d = request.json; db = get_db()
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Not found'}), 404
+    db.execute("""UPDATE clients SET dob=?,gender=?,address=?,emergency_contact=?,emergency_phone=?,medical_notes=? WHERE id=?""",
+        ((d.get('dob','') or '').strip() or None,
+         (d.get('gender','') or '').strip() or None,
+         (d.get('address','') or '').strip() or None,
+         (d.get('emergency_contact','') or '').strip() or None,
+         (d.get('emergency_phone','') or '').strip() or None,
+         (d.get('medical_notes','') or '').strip() or None, cid))
+    db.commit()
+    return jsonify({'status': 'saved'})
 
 @app.route('/api/admin/clients/<int:cid>')
 @require_admin
