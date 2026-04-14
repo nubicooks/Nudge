@@ -248,6 +248,15 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 .msg-ts{font-size:.4rem;color:var(--brown3);margin-bottom:8px;text-align:center}
 </style>
 <script>
+var PIN=localStorage.getItem('nudge_pin')||'';
+if(!PIN){PIN=prompt('Admin PIN:');if(PIN)localStorage.setItem('nudge_pin',PIN);else PIN=''}
+var _fetch=window.fetch;
+window.fetch=function(url,opts){
+  if(typeof url==='string'&&url.indexOf('/api/admin')===0){
+    url+=(url.indexOf('?')>=0?'&':'?')+'pin='+encodeURIComponent(PIN);
+  }
+  return _fetch(url,opts);
+};
 var A='/api/admin', vw=localStorage.getItem('nudge_view')||'month';
 var cur=new Date(), sel=new Date(), daySlots=[];
 
