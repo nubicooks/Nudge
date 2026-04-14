@@ -551,7 +551,7 @@ async function loadClientTable(){
     var r=await fetch(A+'/clients');allClientsData=await r.json();
     var rv=await fetch(A+'/reviews');allReviews=await rv.json();
     // Also load deleted for when that filter is selected
-    var dr=await fetch(A+'/clients/deleted'));window._deletedClients=await dr.json();
+    var dr=await fetch(A+'/clients/deleted');window._deletedClients=await dr.json();
   }catch(e){allClientsData=[];allReviews=[];window._deletedClients=[]}
   filterClients();
 }
