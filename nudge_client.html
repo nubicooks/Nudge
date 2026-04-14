@@ -94,6 +94,10 @@ header{background:var(--red);padding:16px 24px;text-align:center;box-shadow:0 4p
 .ng-fee{font-family:'IBM Plex Mono';font-weight:700;font-size:.8rem;color:var(--red)}
 .ng-acts{display:flex;gap:6px;margin-top:6px}
 .empty{text-align:center;padding:16px;color:var(--brown3);font-size:.6rem}
+.msg-bub{max-width:80%;padding:8px 12px;border-radius:12px;font-size:.68rem;line-height:1.6;margin-bottom:4px;word-wrap:break-word}
+.msg-mine{background:var(--red);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.msg-them{background:var(--white);color:var(--brown);border:1px solid var(--cream2);border-bottom-left-radius:4px}
+.msg-ts{font-size:.38rem;color:var(--brown3);margin-bottom:8px;text-align:center}
 footer{text-align:center;padding:16px;font-size:.45rem;color:var(--brown3)}footer a{color:var(--red);text-decoration:none}
 </style>
 </head>
@@ -117,6 +121,20 @@ footer{text-align:center;padding:16px;font-size:.45rem;color:var(--brown3)}foote
   </div>
   <div class="sec" id="outSec" style="display:none"><div class="sec-t">Your Nudge Offers</div><div id="outList"></div></div>
   <div class="sec" id="pastSec" style="display:none"><div class="sec-t">Past Sessions</div><div id="pastList"></div></div>
+
+  <!-- MESSAGES -->
+  <div class="sec">
+    <div class="sec-t" style="display:flex;justify-content:space-between;align-items:baseline">Messages <span id="msgBadge" style="font-family:'IBM Plex Mono';font-size:.4rem;color:var(--red);display:none">0 new</span></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="msgThread" style="max-height:320px;overflow-y:auto;padding:12px 14px;background:var(--cream);min-height:80px">
+        <div class="empty">No messages yet</div>
+      </div>
+      <div style="padding:8px 12px;border-top:1px solid var(--cream2);display:flex;gap:6px">
+        <input id="msgInput" placeholder="Send a message..." style="flex:1;padding:8px 12px;border:1.5px solid var(--cream3);border-radius:8px;font-family:'Libre Franklin';font-size:.7rem;background:var(--white)" onkeydown="if(event.key==='Enter')sendMsg()">
+        <button class="btn" style="background:var(--red);color:#fff;padding:6px 16px;font-size:.6rem;border-radius:8px" onclick="sendMsg()">Send</button>
+      </div>
+    </div>
+  </div>
 </div>
 <footer>Powered by <a href="#">Nudge</a> &mdash; the Fair Exchange</footer>
 <script>
@@ -129,9 +147,10 @@ async function init(){
   try{var r=await fetch(API+'/profile');if(!r.ok)throw 0;PROF=await r.json();
     document.getElementById('wName').textContent='Hello, '+PROF.name.split(' ')[0];
     document.title='Nudge \u2014 '+PROF.name.split(' ')[0];
-    await loadApts();await loadNudges();
+    await loadApts();await loadNudges();await loadMessages();
     document.getElementById('cv'+cv[0].toUpperCase()+cv.slice(1)).classList.add('act');
     drawCal();
+    setInterval(loadMessages,15000);
   }catch(e){document.querySelector('.container').innerHTML='<div class="empty" style="padding:60px">This link is no longer valid.</div>'}
 }
 
@@ -153,6 +172,43 @@ async function loadNudges(){
 }
 
 async function respond(nid,st){if(!confirm(st==='accepted'?'Accept and earn the fee?':'Decline this offer?'))return;await fetch(API+'/nudge/'+nid+'/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:st})});location.reload()}
+
+// ═══ MESSAGES ═══
+async function loadMessages(){
+  try{
+    var r=await fetch(API+'/messages');var msgs=await r.json();
+    var el=document.getElementById('msgThread');
+    if(!msgs.length){el.innerHTML='<div class="empty">No messages yet. Say hello!</div>';return}
+    var h='',lastDate='';
+    msgs.forEach(function(m){
+      var d=(m.created_at||'').slice(0,10);
+      if(d!==lastDate){h+='<div class="msg-ts">'+d+'</div>';lastDate=d}
+      var time=(m.created_at||'').slice(11,16);
+      var isMine=m.sender==='client';
+      h+='<div style="display:flex;flex-direction:column;align-items:'+(isMine?'flex-end':'flex-start')+'">';
+      h+='<div class="msg-bub '+(isMine?'msg-mine':'msg-them')+'">'+escMsg(m.body)+'</div>';
+      h+='<div style="font-size:.38rem;color:var(--brown3);margin-bottom:6px">'+(isMine?'You':PROF.business||'Admin')+' &middot; '+time+'</div>';
+      h+='</div>';
+    });
+    el.innerHTML=h;
+    el.scrollTop=el.scrollHeight;
+    // Check unread badge
+    var ur=await fetch(API+'/messages/unread');var ud=await ur.json();
+    var badge=document.getElementById('msgBadge');
+    if(ud.unread>0){badge.textContent=ud.unread+' new';badge.style.display='inline'}else{badge.style.display='none'}
+  }catch(e){}
+}
+
+async function sendMsg(){
+  var inp=document.getElementById('msgInput');
+  var body=inp.value.trim();
+  if(!body)return;
+  inp.value='';
+  await fetch(API+'/messages/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:body})});
+  await loadMessages();
+}
+
+function escMsg(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
 // ═══ CALENDAR ═══
 function setCv(v){cv=v;document.querySelectorAll('.vtog button').forEach(function(b){b.classList.remove('act')});document.getElementById('cv'+v[0].toUpperCase()+v.slice(1)).classList.add('act');drawCal()}

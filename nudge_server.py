@@ -160,9 +160,19 @@ def init_db():
         text TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        biz_id INTEGER REFERENCES businesses(id),
+        client_id INTEGER REFERENCES clients(id),
+        sender TEXT NOT NULL,
+        body TEXT NOT NULL,
+        read INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE INDEX IF NOT EXISTS idx_slots_date ON slots(biz_id, date);
     CREATE INDEX IF NOT EXISTS idx_nudges_status ON nudges(biz_id, status);
     CREATE INDEX IF NOT EXISTS idx_clients_token ON clients(token);
+    CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(biz_id, client_id);
     """)
     cur = db.execute("SELECT COUNT(*) FROM businesses")
     if cur.fetchone()[0] == 0:
@@ -1008,6 +1018,76 @@ def _resolve(db, n, status):
         if fc and fc['phone']: send_sms(fc['phone'], f"{tc['name'].split()[0]} declined.{f' {rem} offer left.' if rem > 0 else ' No offers remaining.'}", biz_id=n['biz_id'])
     db.commit()
     return jsonify({'status':status})
+
+
+# ═══════════════════════════════════════════════════
+# MESSAGING — Client ↔ Admin
+# ═══════════════════════════════════════════════════
+@app.route('/api/admin/messages/<int:cid>')
+@require_admin
+def a_messages(cid):
+    db = get_db()
+    rows = db.execute("SELECT * FROM messages WHERE biz_id=? AND client_id=? ORDER BY created_at ASC", (g.biz_id, cid)).fetchall()
+    # Mark client messages as read
+    db.execute("UPDATE messages SET read=1 WHERE biz_id=? AND client_id=? AND sender='client' AND read=0", (g.biz_id, cid))
+    db.commit()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/admin/messages/<int:cid>/send', methods=['POST'])
+@require_admin
+def a_send_msg(cid):
+    db = get_db()
+    body = (request.json or {}).get('body', '').strip()
+    if not body: return jsonify({'error': 'Message required'}), 400
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Client not found'}), 404
+    db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)", (g.biz_id, cid, body))
+    db.commit()
+    # Also send SMS notification if client has phone
+    if client['phone']:
+        send_sms(client['phone'], f"New message from {g.biz['name']}: {body[:120]}", biz_id=g.biz_id)
+    return jsonify({'status': 'sent'})
+
+@app.route('/api/admin/messages/unread')
+@require_admin
+def a_unread():
+    db = get_db()
+    rows = db.execute("""
+        SELECT m.client_id, c.name, COUNT(*) as unread, MAX(m.created_at) as latest
+        FROM messages m JOIN clients c ON m.client_id=c.id
+        WHERE m.biz_id=? AND m.sender='client' AND m.read=0
+        GROUP BY m.client_id ORDER BY latest DESC
+    """, (g.biz_id,)).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/client/<token>/messages')
+@require_client
+def c_messages(token):
+    db = get_db()
+    rows = db.execute("SELECT * FROM messages WHERE biz_id=? AND client_id=? ORDER BY created_at ASC", (g.biz_id, g.client_id)).fetchall()
+    # Mark admin messages as read
+    db.execute("UPDATE messages SET read=1 WHERE biz_id=? AND client_id=? AND sender='admin' AND read=0", (g.biz_id, g.client_id))
+    db.commit()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/client/<token>/messages/send', methods=['POST'])
+@require_client
+def c_send_msg(token):
+    db = get_db()
+    body = (request.json or {}).get('body', '').strip()
+    if not body: return jsonify({'error': 'Message required'}), 400
+    db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'client',?)", (g.biz_id, g.client_id, body))
+    db.commit()
+    print(f"\n  *** NEW MESSAGE from {g.client['name']}: {body[:80]} ***\n")
+    return jsonify({'status': 'sent'})
+
+@app.route('/api/client/<token>/messages/unread')
+@require_client
+def c_unread(token):
+    db = get_db()
+    count = db.execute("SELECT COUNT(*) FROM messages WHERE biz_id=? AND client_id=? AND sender='admin' AND read=0",
+        (g.biz_id, g.client_id)).fetchone()[0]
+    return jsonify({'unread': count})
 
 
 # ═══════════════════════════════════════════════════

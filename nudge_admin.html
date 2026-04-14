@@ -130,6 +130,7 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
   <div class="hdr-r">
     <button class="hb" id="tabSched" onclick="showTab('schedule')" style="background:rgba(255,255,255,.3)">Schedule</button>
     <button class="hb" id="tabClients" onclick="showTab('clients')">Clients</button>
+    <button class="hb" id="tabInbox" onclick="showTab('inbox')">Inbox <span id="inboxBadge" style="background:#fff;color:var(--red);border-radius:50%;padding:0 5px;font-size:.45rem;font-weight:700;margin-left:2px;display:none">0</span></button>
     <button class="hb" onclick="openSet()">Settings</button>
   </div>
 </header>
@@ -168,6 +169,26 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <!-- CLIENTS TAB (hidden by default) -->
 <div id="clientsPage" style="display:none;max-width:1440px;margin:0 auto;padding:16px 20px">
+
+<!-- INBOX TAB (hidden by default) -->
+<div id="inboxPage" style="display:none;max-width:900px;margin:0 auto;padding:16px 20px">
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;min-height:calc(100vh - 100px)">
+    <div class="pnl" style="overflow:hidden;display:flex;flex-direction:column">
+      <div class="pnl-h"><div class="pnl-t">Conversations</div></div>
+      <div id="inboxList" style="flex:1;overflow-y:auto"><div class="empty">Loading...</div></div>
+    </div>
+    <div class="pnl" style="overflow:hidden;display:flex;flex-direction:column">
+      <div class="pnl-h"><div class="pnl-t" id="chatName">Select a conversation</div></div>
+      <div id="chatThread" style="flex:1;overflow-y:auto;padding:12px 14px;background:var(--cream)"><div class="empty">Choose a client from the left</div></div>
+      <div id="chatInput" style="display:none;padding:8px 12px;border-top:1px solid var(--cream2);background:var(--white)">
+        <div style="display:flex;gap:6px">
+          <input id="chatMsg" placeholder="Type a message..." style="flex:1;padding:8px 12px;border:1.5px solid var(--cream3);border-radius:8px;font-family:'Libre Franklin';font-size:.7rem" onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="btn btn-g" onclick="sendChat()" style="padding:6px 16px;font-size:.6rem">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
   <div class="pnl">
     <div class="pnl-h">
       <div class="pnl-t">All Clients</div>
@@ -209,10 +230,23 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <div class="mbg" id="mBlock"><div class="mdl"><h3>Block Time Off</h3><p style="font-size:.7rem;color:var(--brown2);margin-bottom:10px" id="blInfo"></p><label>Reason</label><input id="blReason" placeholder="Lunch, Personal, Day off..."><div class="mdl-a"><button class="btn btn-o" onclick="cm('mBlock')">Cancel</button><button class="btn btn-gray" onclick="doBlock()">Block Slot</button></div></div></div>
 
-<div class="mbg" id="mClient"><div class="mdl"><h3 id="cdName"></h3><div id="cdBody"></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mClient')">Close</button></div></div></div>
+<div class="mbg" id="mClient"><div class="mdl"><h3 id="cdName"></h3><div id="cdBody"></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mClient')">Close</button><button class="btn btn-g" onclick="cm('mClient');var n=document.getElementById('cdName').textContent;var cid=parseInt(document.getElementById('cdBody').dataset.cid||0);if(cid){showTab('inbox');setTimeout(function(){openChat(cid,n)},200)}">Message</button></div></div></div>
 
 <div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="The Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
 
+<style>
+.ch-row{padding:10px 12px;border-bottom:1px solid var(--cream2);cursor:pointer;display:flex;gap:8px;align-items:center}
+.ch-row:hover{background:var(--cream)}
+.ch-row.ch-act{background:rgba(204,0,0,.04);border-left:3px solid var(--red)}
+.ch-row .ch-unread{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0}
+.ch-row .ch-nm{font-weight:600;font-size:.65rem}
+.ch-row .ch-prev{font-size:.48rem;color:var(--brown3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.ch-row .ch-time{font-size:.42rem;color:var(--brown3);flex-shrink:0}
+.msg-bub{max-width:75%;padding:8px 12px;border-radius:12px;font-size:.68rem;line-height:1.6;margin-bottom:6px;word-wrap:break-word}
+.msg-admin{background:var(--red);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.msg-client{background:var(--white);color:var(--brown);border:1px solid var(--cream2);border-bottom-left-radius:4px}
+.msg-ts{font-size:.4rem;color:var(--brown3);margin-bottom:8px;text-align:center}
+</style>
 <script>
 var A='/api/admin', vw=localStorage.getItem('nudge_view')||'month';
 var cur=new Date(), sel=new Date(), daySlots=[];
@@ -355,6 +389,7 @@ async function loadClients(){}
 async function openClient(cid){
   try{var r=await fetch(A+'/clients/'+cid);var d=await r.json();var c=d.client,v=d.visits,rv=d.reviews||[];
   document.getElementById('cdName').textContent=c.name;
+  document.getElementById('cdBody').dataset.cid=c.id;
   var h='<div style="font-size:.7rem;color:var(--brown2);line-height:1.8;margin-bottom:12px">';
   h+='<div><b>Phone:</b> '+(c.phone||'N/A')+'</div>';
   h+='<div><b>Email:</b> '+(c.email||'N/A')+'</div>';
@@ -411,18 +446,14 @@ async function saveNotes(cid){
 
 // ═══ TABS ═══
 function showTab(tab){
-  if(tab==='schedule'){
-    document.querySelector('.wrap').style.display='grid';
-    document.getElementById('clientsPage').style.display='none';
-    document.getElementById('tabSched').style.background='rgba(255,255,255,.3)';
-    document.getElementById('tabClients').style.background='rgba(255,255,255,.15)';
-  }else{
-    document.querySelector('.wrap').style.display='none';
-    document.getElementById('clientsPage').style.display='block';
-    document.getElementById('tabSched').style.background='rgba(255,255,255,.15)';
-    document.getElementById('tabClients').style.background='rgba(255,255,255,.3)';
-    loadClientTable();
-  }
+  document.querySelector('.wrap').style.display=tab==='schedule'?'grid':'none';
+  document.getElementById('clientsPage').style.display=tab==='clients'?'block':'none';
+  document.getElementById('inboxPage').style.display=tab==='inbox'?'block':'none';
+  document.getElementById('tabSched').style.background=tab==='schedule'?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)';
+  document.getElementById('tabClients').style.background=tab==='clients'?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)';
+  document.getElementById('tabInbox').style.background=tab==='inbox'?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)';
+  if(tab==='clients')loadClientTable();
+  if(tab==='inbox')loadInbox();
 }
 
 // ═══ CLIENT TABLE ═══
@@ -546,10 +577,96 @@ async function loadNewRequests(){
   });document.getElementById('nrBox').innerHTML=h}catch(e){}
 }
 
+// ═══ INBOX ═══
+var chatCid=null, chatPoll=null;
+
+async function loadInbox(){
+  try{
+    var r=await fetch(A+'/clients');var cls=await r.json();
+    var ur=await fetch(A+'/messages/unread');var unread=await ur.json();
+    var unreadMap={};unread.forEach(function(u){unreadMap[u.client_id]=u});
+    // Sort: unread first by latest, then all by name
+    cls.sort(function(a,b){
+      var ua=unreadMap[a.id],ub=unreadMap[b.id];
+      if(ua&&!ub)return -1;if(!ua&&ub)return 1;
+      if(ua&&ub)return ua.latest>ub.latest?-1:1;
+      return(a.name||'').localeCompare(b.name||'');
+    });
+    var h='';
+    cls.forEach(function(c){
+      var u=unreadMap[c.id];
+      h+='<div class="ch-row'+(chatCid===c.id?' ch-act':'')+'" onclick="openChat('+c.id+',\''+esc(c.name)+'\')">';
+      if(u)h+='<div class="ch-unread"></div>';else h+='<div style="width:8px"></div>';
+      h+='<div style="flex:1;min-width:0"><div class="ch-nm">'+c.name+'</div>';
+      if(u)h+='<div class="ch-prev">'+u.unread+' new message'+(u.unread>1?'s':'')+'</div>';
+      else h+='<div class="ch-prev" style="opacity:.4">'+(c.phone||c.email||'')+'</div>';
+      h+='</div></div>';
+    });
+    document.getElementById('inboxList').innerHTML=h||'<div class="empty">No clients yet</div>';
+    // Badge
+    var totalUnread=unread.reduce(function(s,u){return s+u.unread},0);
+    var badge=document.getElementById('inboxBadge');
+    if(totalUnread>0){badge.textContent=totalUnread;badge.style.display='inline'}else{badge.style.display='none'}
+  }catch(e){}
+}
+
+async function openChat(cid,name){
+  chatCid=cid;
+  document.getElementById('chatName').textContent=name;
+  document.getElementById('chatInput').style.display='block';
+  document.querySelectorAll('.ch-row').forEach(function(r){r.classList.remove('ch-act')});
+  // Highlight active
+  loadInbox();
+  await loadThread();
+  if(chatPoll)clearInterval(chatPoll);
+  chatPoll=setInterval(loadThread,8000);
+}
+
+async function loadThread(){
+  if(!chatCid)return;
+  try{
+    var r=await fetch(A+'/messages/'+chatCid);var msgs=await r.json();
+    var el=document.getElementById('chatThread');
+    if(!msgs.length){el.innerHTML='<div class="empty" style="padding:40px 0">No messages yet. Send the first one.</div>';return}
+    var h='',lastDate='';
+    msgs.forEach(function(m){
+      var d=(m.created_at||'').slice(0,10);
+      if(d!==lastDate){h+='<div class="msg-ts">'+d+'</div>';lastDate=d}
+      var time=(m.created_at||'').slice(11,16);
+      h+='<div style="display:flex;flex-direction:column;align-items:'+(m.sender==='admin'?'flex-end':'flex-start')+'">';
+      h+='<div class="msg-bub '+(m.sender==='admin'?'msg-admin':'msg-client')+'">'+escH(m.body)+'</div>';
+      h+='<div style="font-size:.38rem;color:var(--brown3);margin-bottom:6px">'+time+'</div>';
+      h+='</div>';
+    });
+    el.innerHTML=h;
+    el.scrollTop=el.scrollHeight;
+  }catch(e){}
+}
+
+async function sendChat(){
+  if(!chatCid)return;
+  var inp=document.getElementById('chatMsg');
+  var body=inp.value.trim();
+  if(!body)return;
+  inp.value='';
+  await fetch(A+'/messages/'+chatCid+'/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:body})});
+  await loadThread();
+}
+
+function escH(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+async function checkUnread(){
+  try{var r=await fetch(A+'/messages/unread');var u=await r.json();
+  var total=u.reduce(function(s,x){return s+x.unread},0);
+  var badge=document.getElementById('inboxBadge');
+  if(total>0){badge.textContent=total;badge.style.display='inline'}else{badge.style.display='none'}
+  }catch(e){}
+}
+
 // ═══ INIT ═══
 document.getElementById('v'+vw[0].toUpperCase()+vw.slice(1)).classList.add('act');
-draw();refreshAll();
-setInterval(function(){loadNA();loadSMS()},30000);
+draw();refreshAll();checkUnread();
+setInterval(function(){loadNA();loadSMS();checkUnread()},30000);
 </script>
 </body>
 </html>
