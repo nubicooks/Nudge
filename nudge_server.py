@@ -323,6 +323,14 @@ def client_page(token):
 def book_page():
     return send_from_directory(SCRIPT_DIR, 'nudge_book.html')
 
+@app.route('/welcome/<token>')
+def welcome_page(token):
+    return send_from_directory(SCRIPT_DIR, 'nudge_welcome.html')
+
+@app.route('/onboard/<token>')
+def onboard_page(token):
+    return send_from_directory(SCRIPT_DIR, 'nudge_onboard.html')
+
 
 # ═══════════════════════════════════════════════════
 # PUBLIC API — Self-service booking (no auth)
@@ -823,6 +831,21 @@ def a_seed():
 def c_profile(token):
     return jsonify({'name':g.client['name'],'phone':g.client['phone'],'email':g.client['email'],'business':g.biz['name'],'biz_phone':g.biz['phone']})
 
+@app.route('/api/client/<token>/consent', methods=['POST'])
+@require_client
+def c_consent(token):
+    db = get_db()
+    d = request.json
+    ts = d.get('timestamp', datetime.now().isoformat())
+    notes = g.client.get('notes') or ''
+    if 'Consent signed' not in notes:
+        if notes: notes += ' | '
+        notes += f'Consent signed {ts[:10]}'
+        db.execute("UPDATE clients SET notes=? WHERE id=?", (notes, g.client_id))
+        db.commit()
+    print(f"\n  *** CONSENT SIGNED: {g.client['name']} at {ts} ***\n")
+    return jsonify({'status': 'consented'})
+
 @app.route('/api/client/<token>/appointments')
 @require_client
 def c_apts(token):
@@ -1033,8 +1056,9 @@ def expire_nudges():
 # ═══════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     port = int(os.environ.get('PORT', 8888))
     print(f"\n{'='*52}\n  NUDGE — the Fair Exchange\n  {BASE_URL}\n{'='*52}")
     if USE_TWILIO: print(f"  ✓ Twilio: {TWILIO_FROM}")
