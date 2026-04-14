@@ -3,6 +3,6 @@ builder = "NIXPACKS"
 
 [deploy]
 startCommand = "gunicorn nudge_backend:app --bind 0.0.0.0:$PORT --workers 2"
-healthcheckPath = "/api/admin/stats"
+healthcheckPath = "/book"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
