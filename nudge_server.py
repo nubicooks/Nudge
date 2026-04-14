@@ -40,6 +40,18 @@ else:
     twilio = None
     print("⚠ Twilio not configured — SMS simulated")
 
+# Stripe
+STRIPE_PK = os.environ.get('STRIPE_PK', '')
+STRIPE_SK = os.environ.get('STRIPE_SK', '')
+USE_STRIPE = bool(STRIPE_SK)
+
+if USE_STRIPE:
+    import stripe
+    stripe.api_key = STRIPE_SK
+    print(f"  ✓ Stripe: {STRIPE_PK[:20]}...")
+else:
+    print("⚠ Stripe not configured — payments disabled")
+
 
 # ═══════════════════════════════════════════════════
 # DATABASE
@@ -179,7 +191,7 @@ def init_db():
         api_key = secrets.token_hex(24)
         pin = os.environ.get('ADMIN_PIN', '1234')
         db.execute("INSERT INTO businesses (name, phone, api_key, admin_pin) VALUES (?,?,?,?)",
-            ('The Sol Standard', '(240) 356-3393', api_key, pin))
+            ('the Sol Standard', '(240) 356-3393', api_key, pin))
         print(f"✓ Business created | API key: {api_key} | PIN: {pin}")
 
         # Auto-seed demo clients and appointments
@@ -462,6 +474,9 @@ def view_invoice(token):
     if not i: return "Not found", 404
     i = dict(i)
     status_cls = 'paid' if i['status'] == 'paid' else 'unpaid'
+    pay_btn = ''
+    if i['status'] != 'paid' and USE_STRIPE:
+        pay_btn = f'<div style="margin-top:16px"><a href="/api/stripe/checkout/{token}" style="display:inline-block;padding:12px 32px;background:#cc0000;color:#fff;text-decoration:none;border-radius:8px;font-family:Libre Franklin;font-size:.8rem;font-weight:600">Pay Now &mdash; ${i["amount"]:.2f}</a></div>'
     return f"""<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -506,6 +521,7 @@ def view_invoice(token):
       <tr class="total"><td colspan="3">Total</td><td>${i['amount']:.2f}</td></tr>
     </table>
     <div class="status {status_cls}">{i['status'].upper()}</div>
+    {pay_btn}
     <div class="footer">
       <div class="biz">the Sol Standard &middot; The Nothing Box</div>
       <div class="contact">
@@ -862,11 +878,13 @@ def c_apts(token):
     db = get_db()
     return jsonify([dict(r) for r in db.execute("""
         SELECT s.id,s.date,s.time,s.service,s.price,s.status,
-            r.report_token,i.invoice_token,i.amount as inv_amount,i.status as inv_status
+            r.report_token,i.invoice_token,i.amount as inv_amount,i.status as inv_status,
+            rv.id as review_id,rv.rating as review_rating,rv.text as review_text
         FROM slots s LEFT JOIN reports r ON r.slot_id=s.id AND r.client_id=?
         LEFT JOIN invoices i ON i.slot_id=s.id AND i.client_id=?
+        LEFT JOIN reviews rv ON rv.slot_id=s.id AND rv.client_id=?
         WHERE s.client_id=? AND s.biz_id=? ORDER BY s.date DESC""",
-        (g.client_id, g.client_id, g.client_id, g.biz_id)).fetchall()])
+        (g.client_id, g.client_id, g.client_id, g.client_id, g.biz_id)).fetchall()])
 
 @app.route('/api/client/<token>/available/<date>')
 @require_client
@@ -1088,6 +1106,99 @@ def c_unread(token):
     count = db.execute("SELECT COUNT(*) FROM messages WHERE biz_id=? AND client_id=? AND sender='admin' AND read=0",
         (g.biz_id, g.client_id)).fetchone()[0]
     return jsonify({'unread': count})
+
+
+# ═══════════════════════════════════════════════════
+# STRIPE PAYMENTS
+# ═══════════════════════════════════════════════════
+@app.route('/api/stripe/checkout/<invoice_token>')
+def stripe_checkout(invoice_token):
+    if not USE_STRIPE: return "Payments not configured", 503
+    db = sqlite3.connect(DB_PATH); db.row_factory = sqlite3.Row
+    i = db.execute("""SELECT i.*,c.name,c.email,s.date,s.time,s.service
+        FROM invoices i JOIN clients c ON i.client_id=c.id JOIN slots s ON i.slot_id=s.id
+        WHERE i.invoice_token=? AND i.status!='paid'""", (invoice_token,)).fetchone()
+    db.close()
+    if not i: return "Invoice not found or already paid", 404
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'unit_amount': int(i['amount'] * 100),
+                    'product_data': {
+                        'name': i['service'] or 'Nothing Box Session',
+                        'description': f"{i['date']} at {i['time']}",
+                    },
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            customer_email=i['email'] if i['email'] else None,
+            metadata={'invoice_token': invoice_token, 'client_id': str(i['client_id']), 'slot_id': str(i['slot_id'])},
+            success_url=BASE_URL + '/api/stripe/success?session_id={CHECKOUT_SESSION_ID}&invoice=' + invoice_token,
+            cancel_url=BASE_URL + '/invoice/' + invoice_token,
+        )
+        return redirect(session.url)
+    except Exception as e:
+        print(f"  Stripe error: {e}")
+        return f"Payment error: {e}", 500
+
+@app.route('/api/stripe/success')
+def stripe_success():
+    session_id = request.args.get('session_id')
+    invoice_token = request.args.get('invoice')
+    if session_id and USE_STRIPE:
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            if session.payment_status == 'paid':
+                db = sqlite3.connect(DB_PATH); db.row_factory = sqlite3.Row
+                db.execute("UPDATE invoices SET status='paid',paid_at=CURRENT_TIMESTAMP WHERE invoice_token=?", (invoice_token,))
+                db.commit()
+                client = db.execute("""SELECT c.name,c.phone FROM invoices i JOIN clients c ON i.client_id=c.id
+                    WHERE i.invoice_token=?""", (invoice_token,)).fetchone()
+                db.close()
+                if client and client['phone']:
+                    send_sms_direct(client['phone'], f"Payment received! Thank you, {client['name'].split()[0]}. Your invoice is marked as paid.")
+                print(f"\n  *** PAYMENT RECEIVED: {invoice_token} ***\n")
+        except Exception as e:
+            print(f"  Stripe verify error: {e}")
+    return redirect(f'/invoice/{invoice_token}')
+
+@app.route('/api/stripe/webhook', methods=['POST'])
+def stripe_webhook():
+    payload = request.data
+    sig = request.headers.get('Stripe-Signature')
+    # For now, just handle checkout.session.completed without signature verification
+    # Add STRIPE_WEBHOOK_SECRET env var and verify signature for production
+    try:
+        event = json.loads(payload)
+        if event.get('type') == 'checkout.session.completed':
+            session = event['data']['object']
+            invoice_token = session.get('metadata', {}).get('invoice_token')
+            if invoice_token and session.get('payment_status') == 'paid':
+                db = sqlite3.connect(DB_PATH)
+                db.execute("UPDATE invoices SET status='paid',paid_at=CURRENT_TIMESTAMP WHERE invoice_token=?", (invoice_token,))
+                db.commit(); db.close()
+                print(f"  *** WEBHOOK: Invoice {invoice_token} paid ***")
+    except Exception as e:
+        print(f"  Webhook error: {e}")
+    return '', 200
+
+@app.route('/api/stripe/config')
+def stripe_config():
+    return jsonify({'pk': STRIPE_PK if USE_STRIPE else '', 'enabled': USE_STRIPE})
+
+def send_sms_direct(to_phone, body):
+    """Send SMS without Flask request context (for Stripe callback)"""
+    if USE_TWILIO and to_phone:
+        try:
+            twilio.messages.create(body=body, from_=TWILIO_FROM, to=to_phone)
+        except Exception as e:
+            print(f"  SMS FAIL: {e}")
+    else:
+        print(f"  [SMS] → {to_phone}: {body[:80]}...")
 
 
 # ═══════════════════════════════════════════════════

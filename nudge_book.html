@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Book a Session — The Sol Standard</title>
+<title>Book a Session — the Sol Standard</title>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--red:#cc0000;--red-h:#e00a0a;--cream:#faf5eb;--cream2:#f2e8d6;--cream3:#e8dcc8;--brown:#2a1a0a;--brown2:#5a4a3a;--brown3:#8a7a6a;--green:#1a7a2e;--gold:#c49a3c;--white:#fff;--r:12px}
@@ -113,8 +113,8 @@ footer a{color:var(--red);text-decoration:none}
       <div class="select-wrap">
         <select id="fTier" onchange="updateTier()">
           <option value="free">Try for Free</option>
-          <option value="single" disabled>Single Session — $75 (coming soon)</option>
-          <option value="pack" disabled>4-Session Pack — $250 (coming soon)</option>
+          <option value="single">Single Session — $75</option>
+          <option value="pack">4-Session Pack — $250</option>
         </select>
       </div>
       <div class="tier-info tier-free" id="tierInfo">
@@ -140,7 +140,7 @@ footer a{color:var(--red);text-decoration:none}
         <span class="highlight">What happens next:</span><br>
         We'll reach out to schedule your session and send you everything you need to know beforehand.<br><br>
         <span class="highlight">What is The Nothing Box?</span><br>
-        A space where the noise stops. No screens, no scrolling, no thinking about what's next. Just frequencies, data, and you. The box measures. You just sit there.<br><br>
+        A space where the noise stops. No screens, no scrolling, no thinking about what's next. Just frequencies, data, and you. The box measures. You just lay there.<br><br>
         That's it. That's the whole thing.
       </div>
       <div class="footer-note">Keep an eye on your phone. We'll be in touch.</div>
@@ -148,7 +148,7 @@ footer a{color:var(--red);text-decoration:none}
   </div>
 </div>
 
-<footer>Powered by <a href="/">Nudge</a> &mdash; The Sol Standard</footer>
+<footer>Powered by <a href="/">Nudge</a> &mdash; the Sol Standard</footer>
 
 <script>
 async function init() {
@@ -166,11 +166,11 @@ function updateTier() {
     info.className = 'tier-info tier-free';
     info.textContent = 'Limited time offer. No payment needed. Just come experience it.';
   } else if (tier === 'single') {
-    info.className = 'tier-info tier-coming';
-    info.textContent = 'Single sessions will be available soon.';
+    info.className = 'tier-info tier-free';
+    info.textContent = 'One session, $75. Payment collected after booking.';
   } else {
-    info.className = 'tier-info tier-coming';
-    info.textContent = '4-session packs will be available soon.';
+    info.className = 'tier-info tier-free';
+    info.textContent = 'Four sessions for $250 (save $50). Payment collected after booking.';
   }
 }
 

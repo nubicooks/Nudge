@@ -94,6 +94,16 @@ header{background:var(--red);padding:16px 24px;text-align:center;box-shadow:0 4p
 .ng-fee{font-family:'IBM Plex Mono';font-weight:700;font-size:.8rem;color:var(--red)}
 .ng-acts{display:flex;gap:6px;margin-top:6px}
 .empty{text-align:center;padding:16px;color:var(--brown3);font-size:.6rem}
+.rv-form{margin-top:8px;padding:10px;background:var(--cream);border-radius:8px}
+.rv-stars{display:flex;gap:4px;margin-bottom:8px}
+.rv-star{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--cream3);background:var(--white);color:var(--cream3);font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.rv-star.on{border-color:var(--gold);color:var(--gold);background:rgba(196,154,60,.08)}
+.rv-star:hover{border-color:var(--gold);color:var(--gold)}
+.rv-text{width:100%;padding:8px 10px;border:1.5px solid var(--cream3);border-radius:6px;font-family:'Libre Franklin';font-size:.65rem;resize:vertical;min-height:48px;background:var(--white)}
+.rv-text:focus{outline:none;border-color:var(--red)}
+.rv-submit{margin-top:6px;padding:6px 16px;background:var(--gold);color:#fff;border:none;border-radius:6px;font-family:'Libre Franklin';font-size:.55rem;font-weight:600;cursor:pointer}
+.rv-submit:hover{background:#b8882e}
+.rv-done{font-size:.55rem;color:var(--gold);margin-top:6px;display:flex;align-items:center;gap:4px}
 .msg-bub{max-width:80%;padding:8px 12px;border-radius:12px;font-size:.68rem;line-height:1.6;margin-bottom:4px;word-wrap:break-word}
 .msg-mine{background:var(--red);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
 .msg-them{background:var(--white);color:var(--brown);border:1px solid var(--cream2);border-bottom-left-radius:4px}
@@ -162,7 +172,21 @@ async function loadApts(){
   MY_APTS=up;
   if(up.length){var h='';up.forEach(function(a){h+='<div class="card"><div class="apt-date">'+fmtDate(a.date)+'</div><div class="apt-row"><div><div class="apt-time">'+a.time+'</div><div class="apt-svc">'+(a.service||'Session')+'</div></div><div class="apt-price">$'+(a.price||0).toFixed(2)+'</div></div></div>'});document.getElementById('aptList').innerHTML=h}
   else{document.getElementById('aptList').innerHTML='<div class="empty">No upcoming appointments. Browse below to book.</div>'}
-  if(past.length){document.getElementById('pastSec').style.display='block';var ph='';past.forEach(function(a){var lnk='';if(a.report_token)lnk+='<a class="alink rep" href="/report/'+a.report_token+'" target="_blank">Report</a>';if(a.invoice_token)lnk+='<a class="alink inv" href="/invoice/'+a.invoice_token+'" target="_blank">Invoice</a>';ph+='<div class="card"><div class="apt-date">'+fmtDate(a.date)+'</div><div class="apt-row"><div><div class="apt-time">'+a.time+'</div><div class="apt-svc">'+(a.service||'')+'</div></div><div class="apt-price">$'+(a.price||0).toFixed(2)+'</div></div>'+(lnk?'<div class="apt-links">'+lnk+'</div>':'')+'</div>'});document.getElementById('pastList').innerHTML=ph}
+  if(past.length){document.getElementById('pastSec').style.display='block';var ph='';past.forEach(function(a){
+    var lnk='';
+    if(a.report_token)lnk+='<a class="alink rep" href="/report/'+a.report_token+'" target="_blank">Report</a>';
+    if(a.invoice_token)lnk+='<a class="alink inv" href="/invoice/'+a.invoice_token+'" target="_blank">Invoice</a>';
+    var rvHtml='';
+    if(a.review_id){
+      rvHtml='<div class="rv-done">&#9733; '+a.review_rating+'/5 &mdash; "'+escMsg(a.review_text||'').substring(0,60)+(a.review_text&&a.review_text.length>60?'...':'')+'"</div>';
+    }else if(a.status!=='cancelled'){
+      lnk+='<span class="alink rep" style="cursor:pointer" onclick="showReview('+a.id+',this)">Leave Review</span>';
+      rvHtml='<div id="rvForm-'+a.id+'" style="display:none"><div class="rv-form"><div class="rv-stars" id="rvStars-'+a.id+'">';
+      for(var s=1;s<=5;s++)rvHtml+='<div class="rv-star'+(s<=5?' on':'')+'" onclick="setStars('+a.id+','+s+')">&#9733;</div>';
+      rvHtml+='</div><textarea class="rv-text" id="rvText-'+a.id+'" placeholder="How was your session?"></textarea><button class="rv-submit" onclick="submitReview('+a.id+')">Submit Review</button></div></div>';
+    }
+    ph+='<div class="card"><div class="apt-date">'+fmtDate(a.date)+'</div><div class="apt-row"><div><div class="apt-time">'+a.time+'</div><div class="apt-svc">'+(a.service||'')+'</div></div><div class="apt-price">$'+(a.price||0).toFixed(2)+'</div></div>'+(lnk?'<div class="apt-links">'+lnk+'</div>':'')+rvHtml+'</div>'
+  });document.getElementById('pastList').innerHTML=ph}
 }
 
 async function loadNudges(){
@@ -172,6 +196,33 @@ async function loadNudges(){
 }
 
 async function respond(nid,st){if(!confirm(st==='accepted'?'Accept and earn the fee?':'Decline this offer?'))return;await fetch(API+'/nudge/'+nid+'/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:st})});location.reload()}
+
+// ═══ REVIEWS ═══
+var rvRatings={};
+
+function showReview(sid,el){
+  var form=document.getElementById('rvForm-'+sid);
+  if(form)form.style.display=form.style.display==='none'?'block':'none';
+  rvRatings[sid]=5;
+}
+
+function setStars(sid,n){
+  rvRatings[sid]=n;
+  var stars=document.getElementById('rvStars-'+sid);
+  if(!stars)return;
+  var els=stars.querySelectorAll('.rv-star');
+  els.forEach(function(s,i){if(i<n)s.classList.add('on');else s.classList.remove('on')});
+}
+
+async function submitReview(sid){
+  var text=(document.getElementById('rvText-'+sid).value||'').trim();
+  if(!text){alert('Please write a few words about your session.');return}
+  var rating=rvRatings[sid]||5;
+  var r=await fetch(API+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slot_id:sid,rating:rating,text:text})});
+  var d=await r.json();
+  if(d.error){alert(d.error);return}
+  await loadApts();
+}
 
 // ═══ MESSAGES ═══
 async function loadMessages(){
