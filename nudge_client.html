@@ -317,28 +317,49 @@ async function drawDay(){
 }
 
 async function loadDaySlots(date){
-  var ds=fd(date);selSlot=null;selAction=null;
+  var ds=fd(date);selSlot=null;selAction=null;mySwapSlot=null;
   var ap=document.getElementById('actPanel');if(ap)ap.innerHTML='';
   try{var r=await fetch(API+'/available/'+ds);var slots=await r.json();
   var el=document.getElementById('daySlots');if(!el)return;
   var h='';slots.forEach(function(s){
-    if(s.is_yours){h+='<div class="cs yours">'+s.time+' ★</div>'}
+    if(s.is_yours){h+='<div class="cs yours" onclick="pickMySlot('+s.id+',\''+esc(s.time)+'\',this)" style="cursor:pointer">'+s.time+' ★</div>'}
     else if(s.status==='blocked'){h+='<div class="cs blocked">'+s.time+'</div>'}
     else if(s.label==='Booked'){h+='<div class="cs taken" onclick="pickSlot('+s.id+',\'nudge\',\''+esc(s.time)+'\',this)">'+s.time+'</div>'}
     else{h+='<div class="cs avail" onclick="pickSlot('+s.id+',\'book\',\''+esc(s.time)+'\',this)">'+s.time+'</div>'}
   });el.innerHTML=h}catch(e){}
 }
 
-function pickSlot(id,action,time,el){
-  selSlot=id;selAction=action;selFee=PRICE*0.2;
+var mySwapSlot=null,mySwapTime='';
+
+function pickMySlot(id,time,el){
+  mySwapSlot=id;mySwapTime=time;selSlot=null;selAction='swap-down';
   document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')});
   if(el)el.classList.add('sel');
   var ap=document.getElementById('actPanel');
-  if(action==='book'){
-    ap.innerHTML='<div class="act-panel"><h4>Book '+time+'</h4><div style="font-size:.6rem;color:var(--brown2);margin-bottom:6px">This slot is open. Tap to book it.</div><button class="btn btn-g" onclick="doBook()">Book '+time+'</button></div>';
-  }else{
+  ap.innerHTML='<div class="act-panel"><h4>Swap your '+time+' slot</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:6px">Now tap the slot you\'d rather have. You\'ll offer a fee to swap.</div><div style="font-size:.5rem;color:var(--brown3)">Or cancel: <span style="color:var(--red);cursor:pointer;text-decoration:underline" onclick="cancelSwap()">never mind</span></div></div>';
+}
+
+function cancelSwap(){mySwapSlot=null;mySwapTime='';selAction=null;var ap=document.getElementById('actPanel');if(ap)ap.innerHTML='';document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')})}
+
+function pickSlot(id,action,time,el){
+  selSlot=id;selFee=PRICE*0.2;
+  document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')});
+  if(el)el.classList.add('sel');
+  // If we're in swap-down mode, keep our slot highlighted too
+  if(mySwapSlot){
+    selAction='swap-down';
     var pcts=[10,15,20,25,30,50];var opts='';pcts.forEach(function(p){opts+='<div class="oo'+(p===20?' act':'')+'" onclick="pickFee('+p+',this)">'+p+'%&middot;$'+(PRICE*p/100).toFixed(0)+'</div>'});
-    ap.innerHTML='<div class="act-panel"><h4>Nudge for '+time+'</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">This slot is taken. Make an offer.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">2 offers max &middot; 30 min to respond</div></div><button class="btn btn-r" onclick="doNudge()">Send Nudge</button></div>';
+    var ap=document.getElementById('actPanel');
+    ap.innerHTML='<div class="act-panel"><h4>Swap: your '+mySwapTime+' &rarr; '+time+'</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">You\'ll pay them to take your slot and give you theirs.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">2 offers max &middot; 30 min to respond</div></div><button class="btn btn-r" onclick="doNudge()">Send Swap Offer</button><div style="margin-top:6px;font-size:.45rem;color:var(--brown3);text-align:center;cursor:pointer" onclick="cancelSwap()">Cancel</div></div>';
+  }else{
+    selAction=action;
+    var ap=document.getElementById('actPanel');
+    if(action==='book'){
+      ap.innerHTML='<div class="act-panel"><h4>Book '+time+'</h4><div style="font-size:.6rem;color:var(--brown2);margin-bottom:6px">This slot is open. Tap to book it.</div><button class="btn btn-g" onclick="doBook()">Book '+time+'</button></div>';
+    }else{
+      var pcts=[10,15,20,25,30,50];var opts='';pcts.forEach(function(p){opts+='<div class="oo'+(p===20?' act':'')+'" onclick="pickFee('+p+',this)">'+p+'%&middot;$'+(PRICE*p/100).toFixed(0)+'</div>'});
+      ap.innerHTML='<div class="act-panel"><h4>Nudge for '+time+'</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">This slot is taken. Make an offer.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">2 offers max &middot; 30 min to respond</div></div><button class="btn btn-r" onclick="doNudge()">Send Nudge</button></div>';
+    }
   }
 }
 
@@ -354,7 +375,8 @@ async function doBook(){
 async function doNudge(){
   if(selFee<=0){alert('Select an offer');return}
   var body={to_slot_id:selSlot,fee:selFee};
-  if(MY_APTS.length>0)body.from_slot_id=MY_APTS[0].id;
+  if(mySwapSlot){body.from_slot_id=mySwapSlot}
+  else if(MY_APTS.length>0){body.from_slot_id=MY_APTS[0].id}
   var r=await fetch(API+'/nudge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   var d=await r.json();if(d.error){alert(d.error);return}
   alert('Nudge sent! Offer '+d.attempt+'/'+d.max+'. 30 min to respond.');location.reload();

@@ -96,6 +96,9 @@ def init_db():
         email TEXT,
         token TEXT UNIQUE,
         notes TEXT,
+        status TEXT DEFAULT 'active',
+        deleted_at TIMESTAMP,
+        delete_reason TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE IF NOT EXISTS slots (
@@ -186,6 +189,10 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_clients_token ON clients(token);
     CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(biz_id, client_id);
     """)
+    # Migrate existing databases — add new columns safely
+    for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL')]:
+        try: db.execute(f"ALTER TABLE clients ADD COLUMN {col} {ctype} DEFAULT {default}")
+        except: pass
     cur = db.execute("SELECT COUNT(*) FROM businesses")
     if cur.fetchone()[0] == 0:
         api_key = secrets.token_hex(24)
@@ -552,6 +559,8 @@ def a_book():
     d = request.json; name = d.get('name','').strip(); phone = d.get('phone','').strip()
     email = d.get('email','').strip(); slot_id = d.get('slot_id')
     service = d.get('service','Nothing Box Session'); price = d.get('price', g.biz['session_price'])
+    expire_hours = d.get('expire_hours', 0)
+    send_invoice = d.get('send_invoice', False)
     if not name: return jsonify({'error':'Name required'}), 400
     db = get_db()
     slot = db.execute("SELECT * FROM slots WHERE id=? AND biz_id=?", (slot_id, g.biz_id)).fetchone()
@@ -565,14 +574,33 @@ def a_book():
         token = gen_token()
         db.execute("INSERT INTO clients (biz_id,name,phone,email,token) VALUES (?,?,?,?,?)", (g.biz_id, name, phone, email, token))
         cid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-    db.execute("UPDATE slots SET client_id=?,service=?,price=?,status='booked' WHERE id=?", (cid, service, price, slot_id))
+    # Set status based on expiration
+    status = 'booked'
+    if expire_hours and expire_hours > 0 and price > 0:
+        status = 'held'
+    db.execute("UPDATE slots SET client_id=?,service=?,price=?,status=? WHERE id=?", (cid, service, price, slot_id, status))
     inv_token = gen_token()
-    db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token) VALUES (?,?,?,?,?)", (g.biz_id, cid, slot_id, price, inv_token))
+    inv_status = 'paid' if price == 0 else 'unpaid'
+    db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token,status) VALUES (?,?,?,?,?,?)",
+        (g.biz_id, cid, slot_id, price, inv_token, inv_status))
     db.commit()
     link = f"{BASE_URL}/me/{token}"
+    inv_link = f"{BASE_URL}/invoice/{inv_token}"
+    # Send confirmation SMS
     if phone:
-        send_sms(phone, f"Hi {name.split()[0]}! Confirmed: {slot['time']} on {slot['date']} at {g.biz['name']}. View your appointments: {link}", biz_id=g.biz_id)
-    return jsonify({'status':'booked','client_id':cid,'token':token,'portal_link':link})
+        msg = f"Hi {name.split()[0]}! Confirmed: {slot['time']} on {slot['date']} at {g.biz['name']}."
+        if expire_hours and expire_hours > 0 and price > 0:
+            msg += f" Please pay within {expire_hours} hours to keep your slot."
+        msg += f" View your appointments: {link}"
+        send_sms(phone, msg, biz_id=g.biz_id)
+    # Send invoice if requested
+    if send_invoice and price > 0 and phone:
+        send_sms(phone, f"Invoice for your session: {inv_link}", biz_id=g.biz_id)
+    if send_invoice and price > 0:
+        db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
+            (g.biz_id, cid, f"Here's your invoice: {inv_link}"))
+        db.commit()
+    return jsonify({'status':'booked','client_id':cid,'token':token,'portal_link':link,'invoice_link':inv_link})
 
 @app.route('/api/admin/cancel/<int:sid>', methods=['POST'])
 @require_admin
@@ -699,7 +727,7 @@ def a_clients():
             MAX(s.date) as last_visit
         FROM clients c
         LEFT JOIN slots s ON s.client_id=c.id AND s.status='booked'
-        WHERE c.biz_id=?
+        WHERE c.biz_id=? AND COALESCE(c.status,'active')!='deleted'
         GROUP BY c.id ORDER BY c.name
     """, (g.biz_id,)).fetchall()
     return jsonify([dict(r) for r in rows])
@@ -727,6 +755,84 @@ def a_client_notes(cid):
     db.execute("UPDATE clients SET notes=? WHERE id=? AND biz_id=?", (notes, cid, g.biz_id))
     db.commit()
     return jsonify({'status': 'saved'})
+
+@app.route('/api/admin/clients/<int:cid>/send-info', methods=['POST'])
+@require_admin
+def a_send_info(cid):
+    db = get_db()
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Not found'}), 404
+    link = f"{BASE_URL}/welcome/{client['token']}"
+    # Send via SMS
+    if client['phone']:
+        send_sms(client['phone'], f"Hi {client['name'].split()[0]}! Here's everything you need to know before your session at {g.biz['name']}: {link}", biz_id=g.biz_id)
+    # Send via in-app message
+    db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
+        (g.biz_id, cid, f"Here's everything you need to know before your session. Please read through and give your consent to proceed: {link}"))
+    # Update notes
+    notes = client['notes'] or ''
+    if 'Info package sent' not in notes:
+        if notes: notes += ' | '
+        notes += f'Info package sent {datetime.now().strftime("%Y-%m-%d")}'
+        db.execute("UPDATE clients SET notes=? WHERE id=?", (notes, cid))
+    db.commit()
+    return jsonify({'status': 'sent', 'link': link})
+
+@app.route('/api/admin/clients/<int:cid>/send-welcome', methods=['POST'])
+@require_admin
+def a_send_welcome(cid):
+    db = get_db()
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Not found'}), 404
+    link = f"{BASE_URL}/onboard/{client['token']}"
+    # Send via SMS
+    if client['phone']:
+        send_sms(client['phone'], f"Hi {client['name'].split()[0]}! Your welcome packet is ready. Review the session details and book your appointment: {link}", biz_id=g.biz_id)
+    # Send via in-app message
+    db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
+        (g.biz_id, cid, f"Your welcome packet is ready! Review the details and pick a time for your session: {link}"))
+    # Update notes
+    notes = client['notes'] or ''
+    if 'Welcome sent' not in notes:
+        if notes: notes += ' | '
+        notes += f'Welcome sent {datetime.now().strftime("%Y-%m-%d")}'
+        db.execute("UPDATE clients SET notes=? WHERE id=?", (notes, cid))
+    db.commit()
+    return jsonify({'status': 'sent', 'link': link})
+
+@app.route('/api/admin/clients/<int:cid>/delete', methods=['POST'])
+@require_admin
+def a_delete_client(cid):
+    db = get_db()
+    reason = (request.json or {}).get('reason', '').strip()
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Not found'}), 404
+    db.execute("UPDATE clients SET status='deleted',deleted_at=CURRENT_TIMESTAMP,delete_reason=? WHERE id=?", (reason or None, cid))
+    # Cancel any upcoming appointments
+    db.execute("UPDATE slots SET client_id=NULL,status='open',service=NULL,price=0 WHERE client_id=? AND date>=?",
+        (cid, datetime.now().strftime('%Y-%m-%d')))
+    db.commit()
+    return jsonify({'status': 'deleted'})
+
+@app.route('/api/admin/clients/<int:cid>/restore', methods=['POST'])
+@require_admin
+def a_restore_client(cid):
+    db = get_db()
+    db.execute("UPDATE clients SET status='active',deleted_at=NULL,delete_reason=NULL WHERE id=? AND biz_id=?", (cid, g.biz_id))
+    db.commit()
+    return jsonify({'status': 'restored'})
+
+@app.route('/api/admin/clients/deleted')
+@require_admin
+def a_deleted_clients():
+    db = get_db()
+    rows = db.execute("""
+        SELECT c.*, COUNT(s.id) as visit_count, COALESCE(SUM(s.price),0) as total_spent
+        FROM clients c LEFT JOIN slots s ON s.client_id=c.id AND s.status='booked'
+        WHERE c.biz_id=? AND c.status='deleted'
+        GROUP BY c.id ORDER BY c.deleted_at DESC
+    """, (g.biz_id,)).fetchall()
+    return jsonify([dict(r) for r in rows])
 
 
 # ═══════════════════════════════════════════════════
