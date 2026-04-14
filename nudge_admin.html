@@ -172,12 +172,12 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <!-- INBOX TAB (hidden by default) -->
 <div id="inboxPage" style="display:none;max-width:900px;margin:0 auto;padding:16px 20px">
-  <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;min-height:calc(100vh - 100px)">
-    <div class="pnl" style="overflow:hidden;display:flex;flex-direction:column">
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;height:calc(100vh - 100px)">
+    <div class="pnl" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
       <div class="pnl-h"><div class="pnl-t">Conversations</div></div>
       <div id="inboxList" style="flex:1;overflow-y:auto"><div class="empty">Loading...</div></div>
     </div>
-    <div class="pnl" style="overflow:hidden;display:flex;flex-direction:column">
+    <div class="pnl" style="display:flex;flex-direction:column;height:100%;overflow:hidden">
       <div class="pnl-h"><div class="pnl-t" id="chatName">Select a conversation</div></div>
       <div id="chatThread" style="flex:1;overflow-y:auto;padding:12px 14px;background:var(--cream)"><div class="empty">Choose a client from the left</div></div>
       <div id="chatInput" style="display:none;padding:8px 12px;border-top:1px solid var(--cream2);background:var(--white)">
