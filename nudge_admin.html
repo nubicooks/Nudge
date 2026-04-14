@@ -502,7 +502,7 @@ async function openClient(cid){
 
 async function sendInfoPkg(cid){
   if(!confirm('Send info & consent link to this client via SMS + message?'))return;
-  var r=await fetch(A+'/clients/'+cid+'/send-info'),{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  var r=await fetch(A+'/clients/'+cid+'/send-info',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   var d=await r.json();
   if(d.error){alert(d.error);return}
   alert('Info package sent!');openClient(cid);
@@ -510,7 +510,7 @@ async function sendInfoPkg(cid){
 
 async function sendWelcomePkg(cid){
   if(!confirm('Send welcome packet & booking link to this client via SMS + message?'))return;
-  var r=await fetch(A+'/clients/'+cid+'/send-welcome'),{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  var r=await fetch(A+'/clients/'+cid+'/send-welcome',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   var d=await r.json();
   if(d.error){alert(d.error);return}
   alert('Welcome packet sent!');openClient(cid);
@@ -665,8 +665,8 @@ async function saveDemographics(cid){
 // ═══ DELETE / RESTORE ═══
 var deleteId=0;
 function openDelete(cid,name){deleteId=cid;document.getElementById('delInfo').textContent='Remove '+name+' from your client list?';document.getElementById('delReason').value='';document.getElementById('mDelete').classList.add('show')}
-async function doDelete(){await fetch(A+'/clients/'+deleteId+'/delete'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:document.getElementById('delReason').value.trim()})});cm('mDelete');loadClientTable();refreshAll()}
-async function restoreClient(cid){if(!confirm('Restore this client?'))return;await fetch(A+'/clients/'+cid+'/restore'),{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});loadClientTable()}
+async function doDelete(){await fetch(A+'/clients/'+deleteId+'/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:document.getElementById('delReason').value.trim()})});cm('mDelete');loadClientTable();refreshAll()}
+async function restoreClient(cid){if(!confirm('Restore this client?'))return;await fetch(A+'/clients/'+cid+'/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});loadClientTable()}
 
 // ═══ SEED ═══
 async function doSeed(){var r=await fetch(A+'/seed',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});var d=await r.json();alert(d.status==='seeded'?'Demo data added! '+d.clients+' clients seeded.':'Already seeded.');draw();refreshAll()}
