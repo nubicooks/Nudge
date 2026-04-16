@@ -498,11 +498,11 @@ def pub_inquiry():
         cid = client['id']; token = client['token']
         if phone: db.execute("UPDATE clients SET phone=? WHERE id=?", (phone, cid))
         if email: db.execute("UPDATE clients SET email=? WHERE id=?", (email, cid))
-        db.execute("UPDATE clients SET notes=? WHERE id=?", (f"Tier: {tier_label} | Status: Awaiting Response | Send welcome package", cid))
+        db.execute("UPDATE clients SET notes=?,status='new' WHERE id=?", (f"Tier: {tier_label}", cid))
     else:
         token = gen_token()
-        notes = f"Tier: {tier_label} | Status: Awaiting Response | Send welcome package"
-        db.execute("INSERT INTO clients (biz_id,name,phone,email,token,notes) VALUES (?,?,?,?,?,?)",
+        notes = f"Tier: {tier_label}"
+        db.execute("INSERT INTO clients (biz_id,name,phone,email,token,notes,status) VALUES (?,?,?,?,?,?,'new')",
             (biz['id'], name, phone, email, token, notes))
         cid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
     db.commit()
@@ -649,6 +649,9 @@ def a_book():
         db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
             (g.biz_id, cid, f"Here's your invoice: {inv_link}"))
         db.commit()
+    # Set client to active
+    db.execute("UPDATE clients SET status='active' WHERE id=? AND COALESCE(status,'new') NOT IN ('active','deleted')", (cid,))
+    db.commit()
     return jsonify({'status':'booked','client_id':cid,'token':token,'portal_link':link,'invoice_link':inv_link})
 
 @app.route('/api/admin/cancel/<int:sid>', methods=['POST'])
@@ -857,18 +860,15 @@ def a_send_info(cid):
     client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
     if not client: return jsonify({'error': 'Not found'}), 404
     link = f"{BASE_URL}/welcome/{client['token']}"
-    # Send via SMS
     if client['phone']:
         send_sms(client['phone'], f"Hi {client['name'].split()[0]}! Here's everything you need to know before your session at {g.biz['name']}: {link}", biz_id=g.biz_id)
-    # Send via in-app message
     db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
         (g.biz_id, cid, f"Here's everything you need to know before your session. Please read through and give your consent to proceed: {link}"))
-    # Update notes
     notes = client['notes'] or ''
     if 'Info package sent' not in notes:
         if notes: notes += ' | '
         notes += f'Info package sent {datetime.now().strftime("%Y-%m-%d")}'
-        db.execute("UPDATE clients SET notes=? WHERE id=?", (notes, cid))
+    db.execute("UPDATE clients SET notes=?,status='info_sent' WHERE id=?", (notes, cid))
     db.commit()
     return jsonify({'status': 'sent', 'link': link})
 
@@ -879,18 +879,15 @@ def a_send_welcome(cid):
     client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
     if not client: return jsonify({'error': 'Not found'}), 404
     link = f"{BASE_URL}/onboard/{client['token']}"
-    # Send via SMS
     if client['phone']:
         send_sms(client['phone'], f"Hi {client['name'].split()[0]}! Your welcome packet is ready. Review the session details and book your appointment: {link}", biz_id=g.biz_id)
-    # Send via in-app message
     db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
         (g.biz_id, cid, f"Your welcome packet is ready! Review the details and pick a time for your session: {link}"))
-    # Update notes
     notes = client['notes'] or ''
     if 'Welcome sent' not in notes:
         if notes: notes += ' | '
         notes += f'Welcome sent {datetime.now().strftime("%Y-%m-%d")}'
-        db.execute("UPDATE clients SET notes=? WHERE id=?", (notes, cid))
+    db.execute("UPDATE clients SET notes=?,status='welcome_sent' WHERE id=?", (notes, cid))
     db.commit()
     return jsonify({'status': 'sent', 'link': link})
 
@@ -1085,7 +1082,7 @@ def c_consent(token):
     if 'Consent signed' not in notes:
         if notes: notes += ' | '
         notes += f'Consent signed {ts[:10]}'
-        db.execute("UPDATE clients SET notes=? WHERE id=?", (notes, g.client_id))
+        db.execute("UPDATE clients SET notes=?,status='consented' WHERE id=?", (notes, g.client_id))
         db.commit()
     print(f"\n  *** CONSENT SIGNED: {g.client['name']} at {ts} ***\n")
     return jsonify({'status': 'consented'})
@@ -1218,6 +1215,9 @@ def c_book(token):
                 use = min(cr['amount'], remaining)
                 db.execute("UPDATE credits SET used_invoice_id=? WHERE id=?", (inv_id, cr['id']))
                 remaining -= use
+        db.commit()
+        # Update client status to active
+        db.execute("UPDATE clients SET status='active' WHERE id=? AND status!='active'", (g.client_id,))
         db.commit()
         msg = f"Hi {g.client['name'].split()[0]}! Confirmed: {service} at {slot['time']} on {slot['date']}."
         if credit_used > 0: msg += f" ${credit_used:.2f} credit applied."
@@ -1507,6 +1507,8 @@ def stripe_book_success():
             amount = session.amount_total / 100
             db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token,status,paid_at) VALUES (?,?,?,?,?,'paid',CURRENT_TIMESTAMP)",
                 (biz_id, client_id, slot_id, amount, inv_token))
+            # Set client to active
+            db.execute("UPDATE clients SET status='active' WHERE id=? AND status!='active'", (client_id,))
             db.commit()
             client = db.execute("SELECT * FROM clients WHERE id=?", (client_id,)).fetchone()
             slot = db.execute("SELECT * FROM slots WHERE id=?", (slot_id,)).fetchone()

@@ -473,28 +473,28 @@ async function openClient(cid){
   });
   h+='</div>';
   // ── ACTION BUTTONS ──
-  var hasInfo=(c.notes||'').indexOf('Info package sent')>=0;
-  var hasConsent=(c.notes||'').indexOf('Consent signed')>=0;
-  var hasWelcome=(c.notes||'').indexOf('Welcome sent')>=0;
+  var st=c.status||'active';
   h+='<div style="margin-top:14px;padding:12px;background:var(--cream);border-radius:8px">';
   h+='<div style="font-weight:700;font-size:.55rem;letter-spacing:1px;color:var(--brown3);margin-bottom:8px">ACTIONS</div>';
   h+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
-  // Send Info Package
-  if(!hasInfo){
-    h+='<button class="btn" style="background:var(--blue);color:#fff;font-size:.5rem;padding:5px 12px" onclick="sendInfoPkg('+c.id+')">Send Info Package</button>';
-  }else{
-    h+='<span style="font-size:.45rem;color:var(--green);padding:5px 0">&#10003; Info sent</span>';
-  }
-  // Send Welcome Packet
-  if(hasConsent&&!hasWelcome){
-    h+='<button class="btn" style="background:var(--gold);color:#fff;font-size:.5rem;padding:5px 12px" onclick="sendWelcomePkg('+c.id+')">Send Welcome Packet</button>';
-  }else if(hasWelcome){
-    h+='<span style="font-size:.45rem;color:var(--green);padding:5px 0">&#10003; Welcome sent</span>';
-  }else if(!hasConsent&&hasInfo){
+  // Send Info Package — show if new
+  if(st==='new'){
+    h+='<button class="btn" style="background:#3b82f6;color:#fff;font-size:.5rem;padding:5px 12px" onclick="sendInfoPkg('+c.id+')">Send Info Package</button>';
+  }else if(st==='info_sent'){
     h+='<span style="font-size:.45rem;color:var(--gold);padding:5px 0">&#9672; Awaiting consent</span>';
+  }
+  // Send Welcome Packet — show after consent
+  if(st==='consented'){
+    h+='<button class="btn" style="background:var(--gold);color:#fff;font-size:.5rem;padding:5px 12px" onclick="sendWelcomePkg('+c.id+')">Send Welcome Packet</button>';
+  }else if(st==='welcome_sent'){
+    h+='<span style="font-size:.45rem;color:#3b82f6;padding:5px 0">&#9672; Awaiting booking</span>';
+  }else if(st==='active'){
+    h+='<span style="font-size:.45rem;color:var(--green);padding:5px 0">&#10003; Active client</span>';
   }
   // Portal link
   if(c.token)h+='<a href="/me/'+c.token+'" target="_blank" class="btn" style="background:var(--green);color:#fff;font-size:.5rem;padding:5px 12px;text-decoration:none">Open Portal</a>';
+  // Message
+  h+='<button class="btn" style="background:#6366f1;color:#fff;font-size:.5rem;padding:5px 12px" onclick="cm(\'mClient\');showTab(\'inbox\');setTimeout(function(){openChat('+c.id+',\''+esc(c.name)+'\')},200)">Message</button>';
   // Delete
   h+='<button class="btn" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:.5rem;padding:5px 12px" onclick="cm(\'mClient\');openDelete('+c.id+',\''+esc(c.name)+'\')">Delete</button>';
   h+='</div></div>';
@@ -564,9 +564,10 @@ function filterClients(){
   if(f==='deleted'){renderDeletedTable(window._deletedClients||[]);return}
   var filtered=allClientsData.filter(function(c){
     var match=true;
+    var st=c.status||'active';
     if(q){match=(c.name||'').toLowerCase().indexOf(q)>=0||(c.phone||'').indexOf(q)>=0||(c.email||'').toLowerCase().indexOf(q)>=0}
-    if(f==='new')match=match&&(c.visit_count===0||(c.notes||'').indexOf('Awaiting')>=0);
-    if(f==='active')match=match&&c.visit_count>0;
+    if(f==='new')match=match&&(st==='new'||st==='info_sent'||st==='consented'||st==='welcome_sent');
+    if(f==='active')match=match&&st==='active';
     if(f==='free')match=match&&(c.notes||'').indexOf('Try for Free')>=0;
     return match;
   });
@@ -589,22 +590,28 @@ function renderClientTable(clients){
   if(!clients.length){tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--brown3);font-size:.6rem">No clients found</td></tr>';return}
   var h='';
   clients.forEach(function(c){
-    var status='Active';var stColor='var(--green)';
-    if(c.visit_count===0){status='New';stColor='var(--gold)'}
-    if((c.notes||'').indexOf('Awaiting')>=0){status='Awaiting';stColor='var(--red)'}
-    if((c.notes||'').indexOf('Try for Free')>=0){status='Free Trial';stColor='var(--blue)'}
+    var st=c.status||'active';
+    var statusMap={
+      'new':{label:'New Request',color:'var(--red)'},
+      'info_sent':{label:'Info Sent',color:'var(--gold)'},
+      'consented':{label:'Consented',color:'#8B5CF6'},
+      'welcome_sent':{label:'Awaiting Booking',color:'var(--blue,#3b82f6)'},
+      'active':{label:'Active',color:'var(--green)'}
+    };
+    var sm=statusMap[st]||{label:st,color:'var(--brown3)'};
+    if((c.notes||'').indexOf('Try for Free')>=0&&st==='new')sm.label='Free Trial';
     // Find reviews for this client
     var cRevs=allReviews.filter(function(rv){return rv.client_id===c.id});
     var revText=cRevs.length?cRevs[0].rating+'/5':'—';
     var revColor=cRevs.length?'var(--gold)':'var(--brown3)';
-    var isNew=c.visit_count===0;
+    var isNew=st==='new'||st==='info_sent';
     h+='<tr style="border-bottom:1px solid var(--cream2);cursor:pointer;'+(isNew?'background:rgba(196,154,60,.04)':'')+'" onclick="openClient('+c.id+')">';
     h+='<td style="padding:8px 12px"><div style="font-weight:600">'+c.name+'</div><div style="font-size:.45rem;color:var(--brown3)">'+(c.email||'')+'</div></td>';
     h+='<td style="padding:8px 12px;font-family:IBM Plex Mono;font-size:.5rem;color:var(--brown3)">'+(c.phone||'—')+'</td>';
     h+='<td style="padding:8px 12px;text-align:center">'+c.visit_count+'</td>';
     h+='<td style="padding:8px 12px;font-family:IBM Plex Mono;color:var(--green);font-weight:600">$'+c.total_spent+'</td>';
     h+='<td style="padding:8px 12px;font-size:.5rem;color:var(--brown3)">'+(c.last_visit||'Never')+'</td>';
-    h+='<td style="padding:8px 12px"><span style="font-size:.45rem;font-weight:600;color:'+stColor+';background:'+stColor+'15;padding:2px 6px;border-radius:4px">'+status+'</span></td>';
+    h+='<td style="padding:8px 12px"><span style="font-size:.45rem;font-weight:600;color:'+sm.color+';background:'+sm.color+'15;padding:2px 6px;border-radius:4px">'+sm.label+'</span></td>';
     h+='<td style="padding:8px 12px;font-family:IBM Plex Mono;font-size:.5rem;color:'+revColor+'">'+revText+'</td>';
     h+='<td style="padding:8px 12px"><a href="/me/'+c.token+'" target="_blank" style="font-size:.45rem;color:var(--red);text-decoration:none;font-weight:600">Portal</a></td>';
     h+='</tr>';
