@@ -230,8 +230,11 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(biz_id, client_id);
     """)
     # Migrate existing databases — add new columns safely
-    for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL'),('dob','TEXT','NULL'),('gender','TEXT','NULL'),('address','TEXT','NULL'),('emergency_contact','TEXT','NULL'),('emergency_phone','TEXT','NULL'),('medical_notes','TEXT','NULL')]:
+    for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL'),('dob','TEXT','NULL'),('gender','TEXT','NULL'),('address','TEXT','NULL'),('emergency_contact','TEXT','NULL'),('emergency_phone','TEXT','NULL'),('medical_notes','TEXT','NULL'),('archived','INTEGER','0'),('archived_at','TIMESTAMP','NULL'),('sms_opt_out','INTEGER','0')]:
         try: db.execute(f"ALTER TABLE clients ADD COLUMN {col} {ctype} DEFAULT {default}")
+        except: pass
+    for col, ctype, default in [('practitioner_note','TEXT','NULL'),('session_data','TEXT','NULL'),('sent_at','TIMESTAMP','NULL'),('status','TEXT',"'draft'")]:
+        try: db.execute(f"ALTER TABLE reports ADD COLUMN {col} {ctype} DEFAULT {default}")
         except: pass
     try: db.execute("ALTER TABLE businesses ADD COLUMN platform_fee_pct INTEGER DEFAULT 20")
     except: pass
@@ -308,6 +311,19 @@ def send_sms(to_phone, body, biz_id=None, nudge_id=None):
         (biz_id, to_phone, body, nudge_id, sid))
     db.commit()
 
+def send_sms_to_client(client_id, body, biz_id=None, nudge_id=None):
+    """Send SMS to a client, respecting archive status and opt-out flag.
+    Returns True if sent, False if blocked."""
+    db = get_db()
+    c = db.execute("SELECT phone, archived, sms_opt_out, status FROM clients WHERE id=?", (client_id,)).fetchone()
+    if not c or not c['phone']:
+        return False
+    if c['archived'] or c['sms_opt_out'] or (c['status'] == 'deleted'):
+        print(f"  [SMS blocked — client #{client_id} archived/opt-out/deleted]")
+        return False
+    send_sms(c['phone'], body, biz_id=biz_id, nudge_id=nudge_id)
+    return True
+
 def get_biz(db):
     return db.execute("SELECT * FROM businesses LIMIT 1").fetchone()
 
@@ -377,11 +393,197 @@ def require_client(f):
         db = get_db()
         client = db.execute("SELECT * FROM clients WHERE token=?", (token,)).fetchone()
         if not client: return jsonify({'error': 'Invalid link'}), 401
+        if client['archived']:
+            return jsonify({'error': 'This session has been archived. Please contact the practitioner.'}), 403
+        if (client['status'] or 'active') == 'deleted':
+            return jsonify({'error': 'Invalid link'}), 401
         g.client_id = client['id']; g.client = dict(client)
         g.biz_id = client['biz_id']
         g.biz = dict(db.execute("SELECT * FROM businesses WHERE id=?", (client['biz_id'],)).fetchone())
         return f(*a, **kw)
     return w
+
+
+# ═══════════════════════════════════════════════════
+# REPORT GENERATION
+# ═══════════════════════════════════════════════════
+REPORT_BRAND_CSS = """
+:root{--bg:#050608;--surface:#0a0d10;--card:#0f1215;--border:#1a1e24;--teal:#00e5c7;--teal-dim:rgba(0,229,199,.08);--gold:#e8a44a;--gold-dim:rgba(232,164,74,.08);--text:#e2e4e9;--text2:#c4c8cf;--text3:#9ca3af;--dim:#5c6370;--red:#ef4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;min-height:100vh;line-height:1.8;padding:32px 20px 60px}
+.wrap{max-width:900px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;padding:40px}
+h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;letter-spacing:.5px;color:var(--text);margin:0}
+.head{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:28px}
+.brand{font-family:'Cormorant Garamond',serif;font-size:16px;letter-spacing:2px}
+.brand .sol{color:var(--gold)}
+.brand .sub{display:block;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:4px;color:var(--dim);margin-top:2px}
+.head h1{font-size:32px;margin:18px 0 6px}
+.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);letter-spacing:2px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.meta b{color:var(--text3);font-weight:400;display:block;font-size:11px;margin-top:2px}
+.section{margin-bottom:36px}
+.sec-label{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:3px;color:var(--teal);margin-bottom:10px;display:block;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.section h2{font-size:22px;margin-bottom:8px}
+.section p{font-size:13.5px;color:var(--text3);line-height:1.9;margin:0 0 12px}
+.framer{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:15px;color:var(--text3);margin:0;line-height:1.8;padding:16px 0}
+
+/* Practitioner's Corner */
+.pc-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.pc-banner{background:var(--card);padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.pc-avatar{width:36px;height:36px;border-radius:50%;background:rgba(0,229,199,.08);border:1px solid rgba(0,229,199,.3);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--teal);flex-shrink:0;letter-spacing:1px}
+.pc-who{flex:1;min-width:0}
+.pc-name{font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--text);letter-spacing:.3px}
+.pc-role{font-family:'Space Mono',monospace;font-size:8.5px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-top:2px;display:block}
+.pc-sid{font-family:'Space Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:1.5px;text-align:right;line-height:1.6}
+.pc-body{padding:26px 32px}
+.pc-quote{font-family:'Cormorant Garamond',serif;font-size:48px;color:var(--border);line-height:0.4;margin-bottom:4px;display:block}
+.pc-note{font-family:'DM Sans',sans-serif;font-size:14.5px;color:var(--text);line-height:2}
+.pc-note p{margin:0 0 14px}
+.pc-note p:last-child{margin:0}
+.pc-foot{padding:18px 32px;border-top:1px solid var(--border);background:var(--bg);display:flex;justify-content:space-between;align-items:center}
+.pc-hw{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold)}
+.pc-date{font-family:'Space Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase}
+.pc-empty{background:var(--bg);border:1px dashed var(--border);border-radius:6px;padding:18px 22px;margin-top:14px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--dim);font-style:italic;line-height:1.7;text-align:center}
+
+/* Document notes */
+.legal{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin-top:12px}
+.legal p{font-size:12px;color:var(--dim);line-height:1.8;margin:0 0 8px;font-family:'DM Sans',sans-serif}
+.legal p:last-child{margin:0}
+.legal p b{color:var(--text3);font-weight:400}
+
+.rp-foot{padding-top:24px;margin-top:24px;border-top:1px solid var(--border);text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:2px}
+.rp-foot a{color:var(--teal);text-decoration:none}
+
+/* Stub placeholder for unfilled sections (Phase 1) */
+.stub{background:var(--surface);border:1px dashed var(--border);border-radius:8px;padding:24px 28px;text-align:center}
+.stub h3{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--text3);margin-bottom:8px;font-weight:400}
+.stub p{font-size:12.5px;color:var(--dim);line-height:1.8;margin:0;font-family:'DM Sans',sans-serif}
+
+@media(max-width:720px){.wrap{padding:24px 18px}.meta{grid-template-columns:repeat(2,1fr)}}
+"""
+
+def _report_header_html(client, slot, session_id):
+    date = slot['date'] if slot and 'date' in slot.keys() else datetime.now().strftime('%Y-%m-%d')
+    return f"""
+<div class="head">
+  <div class="brand">the <span class="sol">Sol</span> Standard<span class="sub">THE NOTHING BOX &middot; SESSION REPORT</span></div>
+  <h1>Session &middot; {esc_html(client['name'].split()[0])}</h1>
+  <div class="meta">
+    <span>DATE<b>{esc_html(date)}</b></span>
+    <span>DURATION<b>45 min</b></span>
+    <span>SESSION ID<b>{esc_html(session_id)}</b></span>
+    <span>PRACTITIONER<b>Ndubisi</b></span>
+  </div>
+</div>
+<p class="framer">A record of what was played, what was measured, how the signals coupled across channels, and what the instrument observed. Nothing else.</p>
+"""
+
+def _report_practitioner_corner_html(client, note, session_id, date_str):
+    if note:
+        note_paragraphs = ''.join(f'<p>{esc_html(p)}</p>' for p in note.split('\n') if p.strip())
+        body = f"""
+<div class="pc-wrap">
+  <div class="pc-banner">
+    <div class="pc-avatar">N</div>
+    <div class="pc-who">
+      <div class="pc-name">Ndubisi</div>
+      <span class="pc-role">Practitioner &middot; The Sol Standard</span>
+    </div>
+    <div class="pc-sid">SESSION {esc_html(session_id)}<br>{esc_html(date_str)}</div>
+  </div>
+  <div class="pc-body">
+    <span class="pc-quote">"</span>
+    <div class="pc-note">{note_paragraphs}</div>
+  </div>
+  <div class="pc-foot">
+    <div class="pc-hw">Ndubisi</div>
+    <div class="pc-date">written {esc_html(date_str)}</div>
+  </div>
+</div>
+"""
+    else:
+        body = """
+<div class="pc-empty">
+Some sessions end without a written note. That is also an answer. The data above is complete on its own.
+</div>
+"""
+    return body
+
+def _report_legal_html():
+    return """
+<div class="legal">
+  <p><b>This is a sensor record.</b> It contains the readings an instrument made during a specific 45-minute period in a specific room.</p>
+  <p><b>This is not a medical document.</b> It does not contain a diagnosis, a prognosis, a treatment record, or a recommendation. It describes the behavior of an instrument, not the condition of a person.</p>
+  <p><b>The numbers describe the instrument.</b> They do not describe the person the instrument was near.</p>
+  <p><b>No comparison is made to any other session or any other individual.</b> The data in this report stands alone.</p>
+</div>
+"""
+
+def esc_html(s):
+    if s is None: return ''
+    return (str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
+        .replace('"','&quot;').replace("'",'&#39;'))
+
+def _report_stub_html(client, slot_id, practitioner_note):
+    """Phase 1 stub — used when no real session_data is supplied.
+    Shows header, Practitioner's Corner if note provided, and legal footer.
+    Data sections render as placeholders awaiting real session data."""
+    db = get_db()
+    slot = None
+    if slot_id:
+        slot = db.execute("SELECT * FROM slots WHERE id=?", (slot_id,)).fetchone()
+    date_str = slot['date'] if slot and slot['date'] else datetime.now().strftime('%Y-%m-%d')
+    session_id = f"SS-{date_str.replace('-','')}-C{client['id']:03d}"
+
+    stub_block = """
+<section class="section">
+  <span class="sec-label">PARTS ONE THROUGH EIGHT &middot; DATA SECTIONS</span>
+  <div class="stub">
+    <h3>Session data pending</h3>
+    <p>The full report with sequence, channels, coupling matrix, observations, and plain-language translation will be generated here after the session is run and the instrument data is processed.</p>
+  </div>
+</section>
+"""
+
+    pc_block = _report_practitioner_corner_html(client, practitioner_note, session_id, date_str)
+
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Session Report &middot; {esc_html(client['name'])}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>{REPORT_BRAND_CSS}</style>
+</head><body>
+<div class="wrap">
+  {_report_header_html(client, slot, session_id)}
+  {stub_block}
+  <section class="section">
+    <span class="sec-label">PART NINE &middot; PRACTITIONER'S CORNER</span>
+    <h2>A note from the person who ran the box.</h2>
+    {pc_block}
+  </section>
+  <section class="section">
+    <span class="sec-label">DOCUMENT NOTES</span>
+    {_report_legal_html()}
+  </section>
+  <footer class="rp-foot">
+    the Sol Standard &middot; the Nothing Box &middot; Session {esc_html(session_id)}<br>
+    <a href="mailto:hello@thesolstandard.com">hello@thesolstandard.com</a> &middot; (240) 356-3393
+  </footer>
+</div>
+</body></html>"""
+
+def generate_report_html(client, slot_id, practitioner_note, session_data):
+    """Full report generator. Phase 2 path.
+    If session_data is None or empty, falls back to stub.
+    When real data is supplied, renders the full 9-part report.
+    Optionally uses Claude API for natural-language sections if CLAUDE_API_KEY is set."""
+    if not session_data:
+        return _report_stub_html(client, slot_id, practitioner_note)
+    # Phase 2: real data is present. The full template integration goes here.
+    # For now, use the stub with a marker so we know data arrived.
+    # TODO: integrate the full 9-part template from the designed report when
+    # the session CSV schema is finalized.
+    return _report_stub_html(client, slot_id, practitioner_note)
+
 
 
 # ═══════════════════════════════════════════════════
@@ -408,6 +610,26 @@ def welcome_page(token):
 @app.route('/onboard/<token>')
 def onboard_page(token):
     return send_from_directory(SCRIPT_DIR, 'nudge_onboard.html')
+
+@app.route('/report/<token>')
+def report_page(token):
+    """Public-facing report page. Token is the report's report_token (unique per report).
+    Archived clients still get access via the report URL (they already had the session).
+    Deleted clients do not."""
+    db = get_db()
+    r = db.execute("""SELECT r.*, c.name, c.status as c_status
+        FROM reports r JOIN clients c ON r.client_id=c.id
+        WHERE r.report_token=?""", (token,)).fetchone()
+    if not r:
+        return make_response("<!DOCTYPE html><html><body style='background:#050608;color:#9ca3af;font-family:system-ui;padding:60px;text-align:center'><h2 style='font-weight:300'>Report not found</h2><p>This link may be invalid or expired.</p></body></html>", 404)
+    if (r['c_status'] or 'active') == 'deleted':
+        return make_response("<!DOCTYPE html><html><body style='background:#050608;color:#9ca3af;font-family:system-ui;padding:60px;text-align:center'><h2 style='font-weight:300'>Report unavailable</h2></body></html>", 404)
+    if r['status'] == 'draft':
+        # Don't show drafts to clients
+        return make_response("<!DOCTYPE html><html><body style='background:#050608;color:#9ca3af;font-family:system-ui;padding:60px;text-align:center'><h2 style='font-weight:300'>Report not yet available</h2><p>Please check back shortly.</p></body></html>", 403)
+    resp = make_response(r['report_html'] or '<h1>Report not generated</h1>')
+    resp.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return resp
 
 
 # ═══════════════════════════════════════════════════
@@ -593,6 +815,11 @@ def view_invoice(token):
 # ═══════════════════════════════════════════════════
 # ADMIN API
 # ═══════════════════════════════════════════════════
+@app.route('/api/admin/ping')
+@require_admin
+def a_ping():
+    return jsonify({'ok': True, 'biz': g.biz.get('name'), 'biz_id': g.biz_id})
+
 @app.route('/api/admin/slots/<date>')
 @require_admin
 def a_slots(date):
@@ -773,13 +1000,20 @@ def a_unblock(sid):
 @require_admin
 def a_clients():
     db = get_db()
-    rows = db.execute("""
+    show = request.args.get('show', 'active')  # 'active', 'archived', 'all'
+    if show == 'archived':
+        filt = "AND COALESCE(c.archived,0)=1 AND COALESCE(c.status,'active')!='deleted'"
+    elif show == 'all':
+        filt = "AND COALESCE(c.status,'active')!='deleted'"
+    else:
+        filt = "AND COALESCE(c.archived,0)=0 AND COALESCE(c.status,'active')!='deleted'"
+    rows = db.execute(f"""
         SELECT c.*, COUNT(s.id) as visit_count,
             COALESCE(SUM(s.price),0) as total_spent,
             MAX(s.date) as last_visit
         FROM clients c
         LEFT JOIN slots s ON s.client_id=c.id AND s.status='booked'
-        WHERE c.biz_id=? AND COALESCE(c.status,'active')!='deleted'
+        WHERE c.biz_id=? {filt}
         GROUP BY c.id ORDER BY c.name
     """, (g.biz_id,)).fetchall()
     return jsonify([dict(r) for r in rows])
@@ -859,9 +1093,9 @@ def a_send_info(cid):
     db = get_db()
     client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
     if not client: return jsonify({'error': 'Not found'}), 404
+    if client['archived']: return jsonify({'error': 'Client is archived. Unarchive to resume communication.'}), 400
     link = f"{BASE_URL}/welcome/{client['token']}"
-    if client['phone']:
-        send_sms(client['phone'], f"Hi {client['name'].split()[0]}! Here's everything you need to know before your session at {g.biz['name']}: {link}", biz_id=g.biz_id)
+    send_sms_to_client(cid, f"Hi {client['name'].split()[0]}! Here's everything you need to know before your session at {g.biz['name']}: {link}", biz_id=g.biz_id)
     db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
         (g.biz_id, cid, f"Here's everything you need to know before your session. Please read through and give your consent to proceed: {link}"))
     notes = client['notes'] or ''
@@ -878,9 +1112,9 @@ def a_send_welcome(cid):
     db = get_db()
     client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
     if not client: return jsonify({'error': 'Not found'}), 404
+    if client['archived']: return jsonify({'error': 'Client is archived. Unarchive to resume communication.'}), 400
     link = f"{BASE_URL}/onboard/{client['token']}"
-    if client['phone']:
-        send_sms(client['phone'], f"Hi {client['name'].split()[0]}! Your welcome packet is ready. Review the session details and book your appointment: {link}", biz_id=g.biz_id)
+    send_sms_to_client(cid, f"Hi {client['name'].split()[0]}! Your welcome packet is ready. Review the session details and book your appointment: {link}", biz_id=g.biz_id)
     db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
         (g.biz_id, cid, f"Your welcome packet is ready! Review the details and pick a time for your session: {link}"))
     notes = client['notes'] or ''
@@ -924,6 +1158,141 @@ def a_deleted_clients():
         GROUP BY c.id ORDER BY c.deleted_at DESC
     """, (g.biz_id,)).fetchall()
     return jsonify([dict(r) for r in rows])
+
+# ═══════════════════════════════════════════════════
+# ADMIN API — Archive / Unarchive
+# ═══════════════════════════════════════════════════
+@app.route('/api/admin/clients/<int:cid>/archive', methods=['POST'])
+@require_admin
+def a_archive_client(cid):
+    db = get_db()
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Not found'}), 404
+    # Archive + revoke portal + opt out of SMS
+    db.execute("UPDATE clients SET archived=1,archived_at=CURRENT_TIMESTAMP,sms_opt_out=1 WHERE id=?", (cid,))
+    db.commit()
+    print(f"\n  *** CLIENT ARCHIVED: {client['name']} (#{cid}) ***\n")
+    return jsonify({'status': 'archived'})
+
+@app.route('/api/admin/clients/<int:cid>/unarchive', methods=['POST'])
+@require_admin
+def a_unarchive_client(cid):
+    db = get_db()
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Not found'}), 404
+    db.execute("UPDATE clients SET archived=0,archived_at=NULL,sms_opt_out=0 WHERE id=?", (cid,))
+    db.commit()
+    return jsonify({'status': 'unarchived'})
+
+@app.route('/api/admin/clients/archived')
+@require_admin
+def a_archived_clients():
+    db = get_db()
+    rows = db.execute("""
+        SELECT c.*, COUNT(s.id) as visit_count, COALESCE(SUM(s.price),0) as total_spent,
+            MAX(s.date) as last_visit
+        FROM clients c LEFT JOIN slots s ON s.client_id=c.id AND s.status='booked'
+        WHERE c.biz_id=? AND COALESCE(c.archived,0)=1 AND COALESCE(c.status,'active')!='deleted'
+        GROUP BY c.id ORDER BY c.archived_at DESC
+    """, (g.biz_id,)).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+# ═══════════════════════════════════════════════════
+# ADMIN API — Reports (Phase 2 ready, Phase 1 stubs)
+# ═══════════════════════════════════════════════════
+@app.route('/api/admin/reports/<int:cid>', methods=['GET'])
+@require_admin
+def a_list_reports(cid):
+    db = get_db()
+    rows = db.execute("""
+        SELECT r.id, r.slot_id, r.report_token, r.status, r.created_at, r.sent_at,
+            r.practitioner_note, s.date, s.time
+        FROM reports r LEFT JOIN slots s ON s.id=r.slot_id
+        WHERE r.client_id=? AND r.biz_id=? ORDER BY r.created_at DESC
+    """, (cid, g.biz_id)).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/admin/reports/<int:cid>/create', methods=['POST'])
+@require_admin
+def a_create_report(cid):
+    """Create a draft report for a client's most recent session.
+    Phase 1: stores stub with practitioner note. Phase 2: generates full HTML via Claude API."""
+    d = request.json or {}
+    slot_id = d.get('slot_id')
+    practitioner_note = (d.get('practitioner_note', '') or '').strip() or None
+    session_data_json = d.get('session_data')  # optional — supply later when real data exists
+    db = get_db()
+    client = db.execute("SELECT * FROM clients WHERE id=? AND biz_id=?", (cid, g.biz_id)).fetchone()
+    if not client: return jsonify({'error': 'Client not found'}), 404
+    # If no slot_id provided, pick most recent booked session
+    if not slot_id:
+        r = db.execute("SELECT id FROM slots WHERE client_id=? AND biz_id=? AND status='booked' ORDER BY date DESC, time DESC LIMIT 1",
+            (cid, g.biz_id)).fetchone()
+        if r: slot_id = r['id']
+    token = gen_token()
+    # Generate HTML (Phase 2 plumbing — falls back to stub if no session_data)
+    try:
+        report_html = generate_report_html(client, slot_id, practitioner_note, session_data_json)
+    except Exception as e:
+        print(f"  Report generation error: {e}")
+        report_html = _report_stub_html(client, slot_id, practitioner_note)
+    db.execute("""INSERT INTO reports (biz_id,client_id,slot_id,report_html,report_token,
+        practitioner_note,session_data,status) VALUES (?,?,?,?,?,?,?,'draft')""",
+        (g.biz_id, cid, slot_id, report_html, token, practitioner_note,
+         json.dumps(session_data_json) if session_data_json else None))
+    rid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    db.commit()
+    return jsonify({'status': 'created', 'report_id': rid, 'report_token': token,
+        'preview_url': f"{BASE_URL}/report/{token}"})
+
+@app.route('/api/admin/reports/<int:rid>/note', methods=['POST'])
+@require_admin
+def a_update_report_note(rid):
+    note = ((request.json or {}).get('practitioner_note', '') or '').strip() or None
+    db = get_db()
+    r = db.execute("SELECT * FROM reports WHERE id=? AND biz_id=?", (rid, g.biz_id)).fetchone()
+    if not r: return jsonify({'error': 'Not found'}), 404
+    # Update note and regenerate HTML with new note baked in
+    client = db.execute("SELECT * FROM clients WHERE id=?", (r['client_id'],)).fetchone()
+    session_data = None
+    if r['session_data']:
+        try: session_data = json.loads(r['session_data'])
+        except: pass
+    try:
+        report_html = generate_report_html(client, r['slot_id'], note, session_data)
+    except Exception as e:
+        report_html = _report_stub_html(client, r['slot_id'], note)
+    db.execute("UPDATE reports SET practitioner_note=?, report_html=? WHERE id=?", (note, report_html, rid))
+    db.commit()
+    return jsonify({'status': 'updated'})
+
+@app.route('/api/admin/reports/<int:rid>/send', methods=['POST'])
+@require_admin
+def a_send_report(rid):
+    db = get_db()
+    r = db.execute("SELECT * FROM reports WHERE id=? AND biz_id=?", (rid, g.biz_id)).fetchone()
+    if not r: return jsonify({'error': 'Not found'}), 404
+    link = f"{BASE_URL}/report/{r['report_token']}"
+    client = db.execute("SELECT * FROM clients WHERE id=?", (r['client_id'],)).fetchone()
+    if not client: return jsonify({'error': 'Client missing'}), 404
+    # Send as a Nudge message
+    db.execute("INSERT INTO messages (biz_id,client_id,sender,body) VALUES (?,?,'admin',?)",
+        (g.biz_id, r['client_id'], f"Your session report is ready. View it here: {link}"))
+    # Send SMS if client allows
+    send_sms_to_client(r['client_id'],
+        f"Hi {client['name'].split()[0]}, your session report from the Sol Standard is ready: {link}",
+        biz_id=g.biz_id)
+    db.execute("UPDATE reports SET status='sent', sent_at=CURRENT_TIMESTAMP WHERE id=?", (rid,))
+    db.commit()
+    return jsonify({'status': 'sent', 'link': link})
+
+@app.route('/api/admin/reports/<int:rid>/delete', methods=['POST'])
+@require_admin
+def a_delete_report(rid):
+    db = get_db()
+    db.execute("DELETE FROM reports WHERE id=? AND biz_id=?", (rid, g.biz_id))
+    db.commit()
+    return jsonify({'status': 'deleted'})
 
 
 # ═══════════════════════════════════════════════════

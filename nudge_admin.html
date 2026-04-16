@@ -131,6 +131,7 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
     <button class="hb" id="tabSched" onclick="showTab('schedule')" style="background:rgba(255,255,255,.3)">Schedule</button>
     <button class="hb" id="tabClients" onclick="showTab('clients')">Clients</button>
     <button class="hb" id="tabInbox" onclick="showTab('inbox')">Inbox <span id="inboxBadge" style="background:#fff;color:var(--red);border-radius:50%;padding:0 5px;font-size:.45rem;font-weight:700;margin-left:2px;display:none">0</span></button>
+    <button class="hb" id="tabArchived" onclick="showTab('archived')">Archived</button>
     <button class="hb" onclick="openSet()">Settings</button>
   </div>
 </header>
@@ -187,6 +188,17 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
   </div>
 </div>
 
+<!-- ARCHIVED TAB (hidden by default) -->
+<div id="archivedPage" style="display:none;max-width:1200px;margin:0 auto;padding:16px 20px">
+  <div class="pnl">
+    <div class="pnl-h">
+      <div class="pnl-t">Archived Clients</div>
+      <div style="font-size:.55rem;color:var(--brown3);font-style:italic">Archived clients are hidden from active lists. SMS and portal access are suspended.</div>
+    </div>
+    <div class="pnl-f" id="archivedList" style="padding:0"><div class="empty">Loading...</div></div>
+  </div>
+</div>
+
 <!-- CLIENTS TAB (hidden by default) -->
 <div id="clientsPage" style="display:none;max-width:1440px;margin:0 auto;padding:16px 20px">
   <div class="pnl">
@@ -234,9 +246,27 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <div class="mbg" id="mClient"><div class="mdl"><h3 id="cdName"></h3><div id="cdBody"></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mClient')">Close</button><button class="btn btn-g" onclick="cm('mClient');var n=document.getElementById('cdName').textContent;var cid=parseInt(document.getElementById('cdBody').dataset.cid||0);if(cid){showTab('inbox');setTimeout(function(){openChat(cid,n)},200)}">Message</button></div></div></div>
 
-<div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><label>Platform Fee (%)</label><input id="sPlatFee" type="number" value="20" min="0" max="100"><div style="font-size:.45rem;color:var(--brown3);margin-top:2px">Your cut from each nudge transaction. Remainder becomes client credit.</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--cream2)"><div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Database Backup</div><div style="display:flex;gap:6px"><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="doBackup()">Create Backup</button><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="downloadBackup()">Download Backup</button></div><div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Auto-backs up daily. Download a copy to keep offline.</div></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
+<div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><label>Platform Fee (%)</label><input id="sPlatFee" type="number" value="20" min="0" max="100"><div style="font-size:.45rem;color:var(--brown3);margin-top:2px">Your cut from each nudge transaction. Remainder becomes client credit.</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--cream2)"><div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Database Backup</div><div style="display:flex;gap:6px"><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="doBackup()">Create Backup</button><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="downloadBackup()">Download Backup</button></div><div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Auto-backs up daily. Download a copy to keep offline.</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--cream2)"><div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Session</div><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="resetPIN()">Change Admin PIN</button><div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Clears saved PIN and re-prompts.</div></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
 
 <div class="mbg" id="mDelete"><div class="mdl"><h3 style="color:var(--red)">Delete Client</h3><p id="delInfo" style="font-size:.7rem;color:var(--brown2);margin-bottom:10px"></p><label>Reason (optional)</label><textarea id="delReason" placeholder="Why are you removing this client?"></textarea><p style="font-size:.55rem;color:var(--brown3);margin-top:8px">Their upcoming appointments will be cancelled. You can restore them later from the Deleted filter.</p><div class="mdl-a"><button class="btn btn-o" onclick="cm('mDelete')">Cancel</button><button class="btn btn-warn" onclick="doDelete()">Delete Client</button></div></div></div>
+
+<!-- REPORTS MODAL -->
+<div class="mbg" id="mReports"><div class="mdl" style="max-width:640px">
+  <h3 id="rpName">Session Reports</h3>
+  <div id="rpList" style="margin:10px 0;max-height:240px;overflow-y:auto;background:var(--cream);border:1px solid var(--cream2);border-radius:8px;padding:8px"><div class="empty">Loading...</div></div>
+  <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--cream2)">
+    <div style="font-weight:700;font-size:.65rem;margin-bottom:4px">Practitioner's Corner</div>
+    <div style="font-size:.5rem;color:var(--brown3);margin-bottom:6px;line-height:1.5">A personal note from you, written into this session's report. Optional. Leave blank to skip.</div>
+    <textarea id="rpNote" placeholder="A few things from where I was sitting during your session..." style="min-height:100px;font-family:'Libre Franklin';font-size:.7rem;line-height:1.7"></textarea>
+  </div>
+  <div class="mdl-a" style="flex-wrap:wrap;gap:6px">
+    <button class="btn btn-o" onclick="cm('mReports')">Close</button>
+    <button class="btn btn-o" id="rpBtnPreview" onclick="rpPreview()" style="display:none">Preview</button>
+    <button class="btn btn-o" id="rpBtnUpdateNote" onclick="rpUpdateNote()" style="display:none">Update Note</button>
+    <button class="btn btn-g" id="rpBtnCreate" onclick="rpCreate()">Create Draft</button>
+    <button class="btn btn-g" id="rpBtnSend" onclick="rpSend()" style="display:none">Send to Client</button>
+  </div>
+</div></div>
 
 <div class="mbg" id="mAddClient"><div class="mdl" style="max-width:520px">
   <h3>Add Client</h3>
@@ -280,14 +310,31 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 </style>
 <script>
 var PIN=localStorage.getItem('nudge_pin')||'';
-if(!PIN){PIN=prompt('Admin PIN:');if(PIN)localStorage.setItem('nudge_pin',PIN);else PIN=''}
+function askPIN(msg){
+  var p=prompt(msg||'Admin PIN:');
+  if(p){PIN=p;localStorage.setItem('nudge_pin',p);return true}
+  PIN='';return false;
+}
+if(!PIN)askPIN();
 var _fetch=window.fetch;
+var _authPrompting=false;
 window.fetch=function(url,opts){
   if(typeof url==='string'&&url.indexOf('/api/admin')===0){
     url+=(url.indexOf('?')>=0?'&':'?')+'pin='+encodeURIComponent(PIN);
   }
-  return _fetch(url,opts);
+  return _fetch(url,opts).then(function(r){
+    if(r.status===401&&typeof url==='string'&&url.indexOf('/api/admin')===0&&!_authPrompting){
+      _authPrompting=true;
+      localStorage.removeItem('nudge_pin');
+      setTimeout(function(){
+        if(askPIN('PIN incorrect. Try again:'))location.reload();
+        else{_authPrompting=false;alert('Admin PIN required. Reload the page to try again.')}
+      },10);
+    }
+    return r;
+  });
 };
+function resetPIN(){localStorage.removeItem('nudge_pin');location.reload()}
 var A='/api/admin', vw=localStorage.getItem('nudge_view')||'month';
 var cur=new Date(), sel=new Date(), daySlots=[];
 
@@ -495,6 +542,10 @@ async function openClient(cid){
   if(c.token)h+='<a href="/me/'+c.token+'" target="_blank" class="btn" style="background:var(--green);color:#fff;font-size:.5rem;padding:5px 12px;text-decoration:none">Open Portal</a>';
   // Message
   h+='<button class="btn" style="background:#6366f1;color:#fff;font-size:.5rem;padding:5px 12px" onclick="cm(\'mClient\');showTab(\'inbox\');setTimeout(function(){openChat('+c.id+',\''+esc(c.name)+'\')},200)">Message</button>';
+  // Reports
+  h+='<button class="btn" style="background:#0891b2;color:#fff;font-size:.5rem;padding:5px 12px" onclick="openReports('+c.id+',\''+esc(c.name)+'\')">Reports</button>';
+  // Archive
+  h+='<button class="btn" style="background:transparent;border:1px solid var(--brown3);color:var(--brown);font-size:.5rem;padding:5px 12px" onclick="doArchive('+c.id+',\''+esc(c.name)+'\')">Archive</button>';
   // Delete
   h+='<button class="btn" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:.5rem;padding:5px 12px" onclick="cm(\'mClient\');openDelete('+c.id+',\''+esc(c.name)+'\')">Delete</button>';
   h+='</div></div>';
@@ -538,11 +589,157 @@ function showTab(tab){
   document.querySelector('.wrap').style.display=tab==='schedule'?'grid':'none';
   document.getElementById('clientsPage').style.display=tab==='clients'?'block':'none';
   document.getElementById('inboxPage').style.display=tab==='inbox'?'block':'none';
+  document.getElementById('archivedPage').style.display=tab==='archived'?'block':'none';
   document.getElementById('tabSched').style.background=tab==='schedule'?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)';
   document.getElementById('tabClients').style.background=tab==='clients'?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)';
   document.getElementById('tabInbox').style.background=tab==='inbox'?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)';
+  document.getElementById('tabArchived').style.background=tab==='archived'?'rgba(255,255,255,.3)':'rgba(255,255,255,.15)';
   if(tab==='clients')loadClientTable();
   if(tab==='inbox')loadInbox();
+  if(tab==='archived')loadArchived();
+}
+
+async function loadArchived(){
+  var listEl=document.getElementById('archivedList');
+  listEl.innerHTML='<div class="empty">Loading...</div>';
+  try{
+    var r=await fetch(A+'/clients/archived');
+    if(!r.ok){listEl.innerHTML='<div class="empty" style="color:var(--red)">Error '+r.status+'</div>';return}
+    var cls=await r.json();
+    if(!cls.length){listEl.innerHTML='<div class="empty" style="padding:40px 20px;text-align:center">No archived clients</div>';return}
+    var h='<table class="tbl" style="width:100%"><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Last Visit</th><th>Archived</th><th>Total</th><th></th></tr></thead><tbody>';
+    cls.forEach(function(c){
+      h+='<tr>';
+      h+='<td style="font-weight:600">'+esc(c.name)+'</td>';
+      h+='<td>'+esc(c.phone||'—')+'</td>';
+      h+='<td>'+esc(c.email||'—')+'</td>';
+      h+='<td>'+(c.last_visit||'—')+'</td>';
+      h+='<td style="font-size:.55rem;color:var(--brown3)">'+(c.archived_at?(c.archived_at.split('T')[0]||c.archived_at.split(' ')[0]):'—')+'</td>';
+      h+='<td>$'+(c.total_spent||0)+'</td>';
+      h+='<td style="text-align:right;display:flex;gap:4px;justify-content:flex-end">';
+      h+='<button class="btn btn-g" style="font-size:.5rem;padding:4px 10px" onclick="doUnarchive('+c.id+',\''+esc(c.name)+'\')">Unarchive</button>';
+      h+='<button class="btn" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:.5rem;padding:4px 10px" onclick="openDelete('+c.id+',\''+esc(c.name)+'\')">Delete</button>';
+      h+='</td></tr>';
+    });
+    h+='</tbody></table>';
+    listEl.innerHTML=h;
+  }catch(e){
+    console.error('Archived load failed:',e);
+    listEl.innerHTML='<div class="empty" style="color:var(--red)">Failed to load: '+(e.message||e)+'</div>';
+  }
+}
+
+async function doUnarchive(cid,name){
+  if(!confirm('Unarchive '+name+'? They will regain portal access and can receive SMS again.'))return;
+  await fetch(A+'/clients/'+cid+'/unarchive',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  loadArchived();
+}
+
+async function doArchive(cid,name){
+  if(!confirm('Archive '+name+'? They will be hidden from active lists, their portal access will be suspended, and SMS will stop going to them. You can unarchive anytime.'))return;
+  await fetch(A+'/clients/'+cid+'/archive',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  cm('mClient');
+  loadClientTable();
+}
+
+// ═══ REPORTS ═══
+var rpCurCid=null,rpCurName='',rpCurReportId=null;
+
+async function openReports(cid,name){
+  rpCurCid=cid;rpCurName=name;rpCurReportId=null;
+  document.getElementById('rpName').textContent='Reports — '+name;
+  document.getElementById('rpNote').value='';
+  document.getElementById('rpBtnPreview').style.display='none';
+  document.getElementById('rpBtnUpdateNote').style.display='none';
+  document.getElementById('rpBtnSend').style.display='none';
+  document.getElementById('rpBtnCreate').style.display='inline-flex';
+  document.getElementById('mReports').classList.add('show');
+  await rpRefresh();
+}
+
+async function rpRefresh(){
+  try{
+    var r=await fetch(A+'/reports/'+rpCurCid);
+    var list=await r.json();
+    var el=document.getElementById('rpList');
+    if(!list.length){el.innerHTML='<div class="empty" style="padding:16px">No reports yet. Create a draft below.</div>';return}
+    var h='';
+    list.forEach(function(rp){
+      var statusColor=rp.status==='sent'?'var(--green)':(rp.status==='draft'?'var(--gold)':'var(--brown3)');
+      var statusLabel=rp.status==='sent'?'SENT '+(rp.sent_at?rp.sent_at.split('T')[0]:''):'DRAFT';
+      h+='<div style="padding:10px;border-bottom:1px solid var(--cream2);display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="rpSelect('+rp.id+','+JSON.stringify(rp.practitioner_note||'').replace(/"/g,'&quot;')+')">';
+      h+='<div><div style="font-weight:600;font-size:.65rem">'+(rp.date||'Session')+(rp.time?' · '+rp.time:'')+'</div>';
+      h+='<div style="font-size:.5rem;color:'+statusColor+';letter-spacing:1px">'+statusLabel+'</div></div>';
+      h+='<div style="display:flex;gap:4px">';
+      h+='<a href="/report/'+rp.report_token+'" target="_blank" class="btn btn-o" style="font-size:.5rem;padding:3px 8px;text-decoration:none" onclick="event.stopPropagation()">Preview</a>';
+      h+='<button class="btn" style="background:transparent;border:1px solid var(--red);color:var(--red);font-size:.5rem;padding:3px 8px" onclick="event.stopPropagation();rpDel('+rp.id+')">Delete</button>';
+      h+='</div></div>';
+    });
+    el.innerHTML=h;
+  }catch(e){document.getElementById('rpList').innerHTML='<div class="empty" style="color:var(--red)">Failed to load: '+(e.message||e)+'</div>'}
+}
+
+function rpSelect(rid,note){
+  rpCurReportId=rid;
+  document.getElementById('rpNote').value=note||'';
+  document.getElementById('rpBtnCreate').style.display='none';
+  document.getElementById('rpBtnUpdateNote').style.display='inline-flex';
+  document.getElementById('rpBtnSend').style.display='inline-flex';
+}
+
+async function rpCreate(){
+  var note=document.getElementById('rpNote').value.trim();
+  try{
+    var r=await fetch(A+'/reports/'+rpCurCid+'/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({practitioner_note:note})});
+    var d=await r.json();
+    if(d.error){alert(d.error);return}
+    rpCurReportId=d.report_id;
+    alert('Draft created. You can preview it below, update the note, or send it to the client.');
+    await rpRefresh();
+    document.getElementById('rpBtnCreate').style.display='none';
+    document.getElementById('rpBtnUpdateNote').style.display='inline-flex';
+    document.getElementById('rpBtnSend').style.display='inline-flex';
+  }catch(e){alert('Failed: '+(e.message||e))}
+}
+
+async function rpUpdateNote(){
+  if(!rpCurReportId){alert('No report selected');return}
+  var note=document.getElementById('rpNote').value.trim();
+  try{
+    await fetch(A+'/reports/'+rpCurReportId+'/note',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({practitioner_note:note})});
+    alert('Note updated and report regenerated.');
+    await rpRefresh();
+  }catch(e){alert('Failed: '+(e.message||e))}
+}
+
+async function rpSend(){
+  if(!rpCurReportId){alert('No report selected');return}
+  if(!confirm('Send this report to the client? They will receive a link via Nudge inbox and SMS (if enabled).'))return;
+  try{
+    var r=await fetch(A+'/reports/'+rpCurReportId+'/send',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    var d=await r.json();
+    if(d.error){alert(d.error);return}
+    alert('Sent. Client will receive: '+d.link);
+    await rpRefresh();
+  }catch(e){alert('Failed: '+(e.message||e))}
+}
+
+async function rpDel(rid){
+  if(!confirm('Delete this report permanently?'))return;
+  await fetch(A+'/reports/'+rid+'/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+  if(rpCurReportId===rid){
+    rpCurReportId=null;
+    document.getElementById('rpNote').value='';
+    document.getElementById('rpBtnCreate').style.display='inline-flex';
+    document.getElementById('rpBtnUpdateNote').style.display='none';
+    document.getElementById('rpBtnSend').style.display='none';
+  }
+  await rpRefresh();
+}
+
+function rpPreview(){
+  // Current draft's preview link is in the list; this button is a shortcut when a report is selected
+  if(!rpCurReportId){alert('No report selected');return}
 }
 
 // ═══ CLIENT TABLE ═══
@@ -734,9 +931,15 @@ async function loadNewRequests(){
 var chatCid=null, chatPoll=null;
 
 async function loadInbox(){
+  var listEl=document.getElementById('inboxList');
+  listEl.innerHTML='<div class="empty">Loading...</div>';
   try{
-    var r=await fetch(A+'/clients');var cls=await r.json();
-    var ur=await fetch(A+'/messages/unread');var unread=await ur.json();
+    var r=await fetch(A+'/clients');
+    if(!r.ok){listEl.innerHTML='<div class="empty" style="color:var(--red)">Error '+r.status+' loading clients. Check console.</div>';return}
+    var cls=await r.json();
+    var ur=await fetch(A+'/messages/unread');
+    if(!ur.ok){listEl.innerHTML='<div class="empty" style="color:var(--red)">Error '+ur.status+' loading messages. Check console.</div>';return}
+    var unread=await ur.json();
     var unreadMap={};unread.forEach(function(u){unreadMap[u.client_id]=u});
     // Sort: unread first by latest, then all by name
     cls.sort(function(a,b){
@@ -755,12 +958,15 @@ async function loadInbox(){
       else h+='<div class="ch-prev" style="opacity:.4">'+(c.phone||c.email||'')+'</div>';
       h+='</div></div>';
     });
-    document.getElementById('inboxList').innerHTML=h||'<div class="empty">No clients yet</div>';
+    listEl.innerHTML=h||'<div class="empty">No clients yet</div>';
     // Badge
     var totalUnread=unread.reduce(function(s,u){return s+u.unread},0);
     var badge=document.getElementById('inboxBadge');
     if(totalUnread>0){badge.textContent=totalUnread;badge.style.display='inline'}else{badge.style.display='none'}
-  }catch(e){}
+  }catch(e){
+    console.error('Inbox load failed:',e);
+    listEl.innerHTML='<div class="empty" style="color:var(--red)">Failed to load. '+(e.message||e)+'</div>';
+  }
 }
 
 async function openChat(cid,name){
