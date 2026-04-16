@@ -3,10 +3,10 @@ Nudge — the Fair Exchange
 Flask + SQLite + Twilio SMS
 Deploy: Railway with persistent /data volume
 """
-import os, json, sqlite3, secrets, hashlib
+import os, json, sqlite3, secrets, hashlib, shutil, time
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, send_from_directory, g, redirect
+from flask import Flask, request, jsonify, send_from_directory, g, redirect, make_response
 
 # ═══════════════════════════════════════════════════
 # CONFIG
@@ -15,6 +15,29 @@ IS_RAILWAY = bool(os.environ.get('RAILWAY_ENVIRONMENT'))
 
 app = Flask(__name__, static_folder=None)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+
+# Security headers
+@app.after_request
+def security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    if IS_RAILWAY:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
+
+# Rate limiting for admin auth (simple in-memory)
+_auth_attempts = {}
+def check_rate_limit(ip):
+    now = time.time()
+    attempts = _auth_attempts.get(ip, [])
+    attempts = [t for t in attempts if now - t < 300]  # 5 min window
+    _auth_attempts[ip] = attempts
+    if len(attempts) >= 10: return False  # 10 attempts per 5 min
+    attempts.append(now)
+    _auth_attempts[ip] = attempts
+    return True
 
 # Railway uses /data volume for persistence. Local uses ~/Nudge/
 if IS_RAILWAY:
@@ -327,6 +350,9 @@ def get_credit_balance(db, biz_id, client_id):
 def require_admin(f):
     @wraps(f)
     def w(*a, **kw):
+        ip = request.remote_addr or '0.0.0.0'
+        if not check_rate_limit(ip):
+            return jsonify({'error': 'Too many attempts. Try again in 5 minutes.'}), 429
         db = get_db()
         key = request.headers.get('X-API-Key') or request.args.get('api_key')
         pin = request.headers.get('X-Admin-Pin') or request.args.get('pin')
@@ -1559,6 +1585,61 @@ def expire_nudges():
         db.execute("UPDATE slots SET client_id=NULL,status='open',service=NULL,price=0 WHERE status='held' AND created_at<?", (cutoff,))
         db.commit()
     except: pass
+
+
+# ═══════════════════════════════════════════════════
+# DATABASE BACKUP
+# ═══════════════════════════════════════════════════
+BACKUP_DIR = os.path.join(DATA_DIR, 'backups')
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
+def do_backup():
+    """Create a timestamped backup of the database"""
+    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_path = os.path.join(BACKUP_DIR, f'nudge_backup_{ts}.db')
+    try:
+        shutil.copy2(DB_PATH, backup_path)
+        # Keep only last 30 backups
+        backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.startswith('nudge_backup_')])
+        while len(backups) > 30:
+            os.remove(os.path.join(BACKUP_DIR, backups.pop(0)))
+        print(f"  ✓ Backup: {backup_path}")
+        return backup_path
+    except Exception as e:
+        print(f"  ✗ Backup failed: {e}")
+        return None
+
+@app.route('/api/admin/backup')
+@require_admin
+def a_backup():
+    path = do_backup()
+    if not path: return jsonify({'error': 'Backup failed'}), 500
+    return jsonify({'status': 'backed up', 'file': os.path.basename(path)})
+
+@app.route('/api/admin/backup/download')
+@require_admin
+def a_backup_download():
+    path = do_backup()
+    if not path: return "Backup failed", 500
+    return send_from_directory(BACKUP_DIR, os.path.basename(path), as_attachment=True)
+
+@app.route('/api/admin/backup/list')
+@require_admin
+def a_backup_list():
+    try:
+        backups = sorted([f for f in os.listdir(BACKUP_DIR) if f.startswith('nudge_backup_')], reverse=True)
+        return jsonify([{'file': f, 'size': os.path.getsize(os.path.join(BACKUP_DIR, f))} for f in backups[:10]])
+    except: return jsonify([])
+
+# Auto-backup on startup
+_last_backup = 0
+@app.before_request
+def auto_backup():
+    global _last_backup
+    now = time.time()
+    if now - _last_backup > 86400:  # Once per day
+        _last_backup = now
+        do_backup()
 
 
 # ═══════════════════════════════════════════════════

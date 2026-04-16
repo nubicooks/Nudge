@@ -234,7 +234,7 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <div class="mbg" id="mClient"><div class="mdl"><h3 id="cdName"></h3><div id="cdBody"></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mClient')">Close</button><button class="btn btn-g" onclick="cm('mClient');var n=document.getElementById('cdName').textContent;var cid=parseInt(document.getElementById('cdBody').dataset.cid||0);if(cid){showTab('inbox');setTimeout(function(){openChat(cid,n)},200)}">Message</button></div></div></div>
 
-<div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><label>Platform Fee (%)</label><input id="sPlatFee" type="number" value="20" min="0" max="100"><div style="font-size:.45rem;color:var(--brown3);margin-top:2px">Your cut from each nudge transaction. Remainder becomes client credit.</div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
+<div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><label>Platform Fee (%)</label><input id="sPlatFee" type="number" value="20" min="0" max="100"><div style="font-size:.45rem;color:var(--brown3);margin-top:2px">Your cut from each nudge transaction. Remainder becomes client credit.</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--cream2)"><div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Database Backup</div><div style="display:flex;gap:6px"><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="doBackup()">Create Backup</button><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="downloadBackup()">Download Backup</button></div><div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Auto-backs up daily. Download a copy to keep offline.</div></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
 
 <div class="mbg" id="mDelete"><div class="mdl"><h3 style="color:var(--red)">Delete Client</h3><p id="delInfo" style="font-size:.7rem;color:var(--brown2);margin-bottom:10px"></p><label>Reason (optional)</label><textarea id="delReason" placeholder="Why are you removing this client?"></textarea><p style="font-size:.55rem;color:var(--brown3);margin-top:8px">Their upcoming appointments will be cancelled. You can restore them later from the Deleted filter.</p><div class="mdl-a"><button class="btn btn-o" onclick="cm('mDelete')">Cancel</button><button class="btn btn-warn" onclick="doDelete()">Delete Client</button></div></div></div>
 
@@ -672,6 +672,14 @@ async function restoreClient(cid){if(!confirm('Restore this client?'))return;awa
 
 // ═══ SEED ═══
 async function doSeed(){var r=await fetch(A+'/seed',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});var d=await r.json();alert(d.status==='seeded'?'Demo data added! '+d.clients+' clients seeded.':'Already seeded.');draw();refreshAll()}
+
+// ═══ BACKUP ═══
+async function doBackup(){
+  var r=await fetch(A+'/backup');var d=await r.json();
+  if(d.error){alert('Backup failed: '+d.error);return}
+  alert('Backup created: '+d.file);
+}
+async function downloadBackup(){window.open(A+'/backup/download','_blank')}
 
 // ═══ SETTINGS ═══
 function openSet(){document.getElementById('mSet').classList.add('show')}
