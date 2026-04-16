@@ -234,7 +234,7 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <div class="mbg" id="mClient"><div class="mdl"><h3 id="cdName"></h3><div id="cdBody"></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mClient')">Close</button><button class="btn btn-g" onclick="cm('mClient');var n=document.getElementById('cdName').textContent;var cid=parseInt(document.getElementById('cdBody').dataset.cid||0);if(cid){showTab('inbox');setTimeout(function(){openChat(cid,n)},200)}">Message</button></div></div></div>
 
-<div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
+<div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><label>Platform Fee (%)</label><input id="sPlatFee" type="number" value="20" min="0" max="100"><div style="font-size:.45rem;color:var(--brown3);margin-top:2px">Your cut from each nudge transaction. Remainder becomes client credit.</div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
 
 <div class="mbg" id="mDelete"><div class="mdl"><h3 style="color:var(--red)">Delete Client</h3><p id="delInfo" style="font-size:.7rem;color:var(--brown2);margin-bottom:10px"></p><label>Reason (optional)</label><textarea id="delReason" placeholder="Why are you removing this client?"></textarea><p style="font-size:.55rem;color:var(--brown3);margin-top:8px">Their upcoming appointments will be cancelled. You can restore them later from the Deleted filter.</p><div class="mdl-a"><button class="btn btn-o" onclick="cm('mDelete')">Cancel</button><button class="btn btn-warn" onclick="doDelete()">Delete Client</button></div></div></div>
 
@@ -406,7 +406,9 @@ async function loadRevenue(){
     '<div class="rv-card"><div class="rv-v g">$'+d.week.revenue+'</div><div class="rv-l">This Week</div><div class="rv-sub">'+d.week.sessions+' sessions</div></div></div>'+
     '<div class="rv" style="margin-top:6px"><div class="rv-card"><div class="rv-v g">$'+d.month.revenue+'</div><div class="rv-l">This Month</div><div class="rv-sub">'+d.month.sessions+' sessions</div></div>'+
     '<div class="rv-card"><div class="rv-v">$'+d.all_time.revenue+'</div><div class="rv-l">All Time</div><div class="rv-sub">'+d.all_time.sessions+' sessions</div></div></div>'+
-    '<div class="rv" style="margin-top:6px"><div class="rv-card" style="grid-column:span 2"><div class="rv-v r">$'+d.swap_fees.toFixed(0)+'</div><div class="rv-l">Swap Fees Earned</div></div></div>'
+    '<div class="rv" style="margin-top:6px"><div class="rv-card"><div class="rv-v r">$'+(d.platform_earned||0).toFixed(0)+'</div><div class="rv-l">Platform Fees</div><div class="rv-sub">Your 20% cut from nudges</div></div>'+
+    '<div class="rv-card"><div class="rv-v" style="color:var(--gold)">$'+(d.credits_outstanding||0).toFixed(0)+'</div><div class="rv-l">Credits Outstanding</div><div class="rv-sub">Owed to clients</div></div></div>'+
+    '<div class="rv" style="margin-top:6px"><div class="rv-card" style="grid-column:span 2"><div class="rv-v r">$'+d.swap_fees.toFixed(0)+'</div><div class="rv-l">Total Nudge Volume</div><div class="rv-sub">All nudge fees processed</div></div></div>'
   }catch(e){}
 }
 
@@ -673,7 +675,7 @@ async function doSeed(){var r=await fetch(A+'/seed',{method:'POST',headers:{'Con
 
 // ═══ SETTINGS ═══
 function openSet(){document.getElementById('mSet').classList.add('show')}
-async function saveSet(){await fetch(A+'/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('sName').value,phone:document.getElementById('sPhone').value,price:parseInt(document.getElementById('sPrice').value),duration:parseInt(document.getElementById('sDur').value),timer:parseInt(document.getElementById('sTimer').value)})});cm('mSet');draw()}
+async function saveSet(){await fetch(A+'/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('sName').value,phone:document.getElementById('sPhone').value,price:parseInt(document.getElementById('sPrice').value),duration:parseInt(document.getElementById('sDur').value),timer:parseInt(document.getElementById('sTimer').value),platform_fee_pct:parseInt(document.getElementById('sPlatFee').value)})});cm('mSet');draw()}
 function cm(id){document.getElementById(id).classList.remove('show')}
 document.querySelectorAll('.mbg').forEach(function(bg){bg.addEventListener('click',function(e){if(e.target===bg)bg.classList.remove('show')})});
 

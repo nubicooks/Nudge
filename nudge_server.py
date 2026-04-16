@@ -84,6 +84,7 @@ def init_db():
         default_nudge_pct INTEGER DEFAULT 20,
         offer_timer_min INTEGER DEFAULT 30,
         max_offers INTEGER DEFAULT 2,
+        platform_fee_pct INTEGER DEFAULT 20,
         api_key TEXT UNIQUE,
         admin_pin TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -190,6 +191,16 @@ def init_db():
         read INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS credits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        biz_id INTEGER REFERENCES businesses(id),
+        client_id INTEGER REFERENCES clients(id),
+        amount REAL NOT NULL,
+        source TEXT,
+        nudge_id INTEGER,
+        used_invoice_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     CREATE INDEX IF NOT EXISTS idx_slots_date ON slots(biz_id, date);
     CREATE INDEX IF NOT EXISTS idx_nudges_status ON nudges(biz_id, status);
     CREATE INDEX IF NOT EXISTS idx_clients_token ON clients(token);
@@ -199,6 +210,8 @@ def init_db():
     for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL'),('dob','TEXT','NULL'),('gender','TEXT','NULL'),('address','TEXT','NULL'),('emergency_contact','TEXT','NULL'),('emergency_phone','TEXT','NULL'),('medical_notes','TEXT','NULL')]:
         try: db.execute(f"ALTER TABLE clients ADD COLUMN {col} {ctype} DEFAULT {default}")
         except: pass
+    try: db.execute("ALTER TABLE businesses ADD COLUMN platform_fee_pct INTEGER DEFAULT 20")
+    except: pass
     cur = db.execute("SELECT COUNT(*) FROM businesses")
     if cur.fetchone()[0] == 0:
         api_key = secrets.token_hex(24)
@@ -302,6 +315,10 @@ def inc_attempts(db, biz_id, from_cid, to_sid):
         db.execute("UPDATE nudge_attempts SET count=count+1 WHERE biz_id=? AND from_client_id=? AND to_slot_id=?", (biz_id, from_cid, to_sid))
     db.commit()
     return c + 1
+
+def get_credit_balance(db, biz_id, client_id):
+    earned = db.execute("SELECT COALESCE(SUM(amount),0) FROM credits WHERE biz_id=? AND client_id=? AND used_invoice_id IS NULL", (biz_id, client_id)).fetchone()[0]
+    return round(earned, 2)
 
 
 # ═══════════════════════════════════════════════════
@@ -681,8 +698,8 @@ def a_settings():
     db = get_db()
     if request.method == 'POST':
         d = request.json
-        db.execute("UPDATE businesses SET name=?,phone=?,session_price=?,session_duration=?,default_nudge_pct=?,offer_timer_min=?,max_offers=? WHERE id=?",
-            (d.get('name'),d.get('phone'),d.get('price'),d.get('duration'),d.get('default_pct'),d.get('timer'),d.get('max_offers',2),g.biz_id))
+        db.execute("UPDATE businesses SET name=?,phone=?,session_price=?,session_duration=?,default_nudge_pct=?,offer_timer_min=?,max_offers=?,platform_fee_pct=? WHERE id=?",
+            (d.get('name'),d.get('phone'),d.get('price'),d.get('duration'),d.get('default_pct'),d.get('timer'),d.get('max_offers',2),d.get('platform_fee_pct',20),g.biz_id))
         db.commit(); return jsonify({'status':'saved'})
     return jsonify(g.biz)
 
@@ -905,13 +922,18 @@ def a_revenue():
     m = rev("date>=?", (g.biz_id, month_start))
     a = rev("1=1", (g.biz_id,))
     swap_fees = db.execute("SELECT COALESCE(SUM(fee),0) FROM nudges WHERE biz_id=? AND status='accepted'", (g.biz_id,)).fetchone()[0]
+    platform_pct = (biz['platform_fee_pct'] if biz.get('platform_fee_pct') else 20) / 100 if (biz := db.execute("SELECT * FROM businesses WHERE id=?", (g.biz_id,)).fetchone()) else 0.2
+    platform_earned = round(swap_fees * platform_pct, 2)
+    credits_outstanding = db.execute("SELECT COALESCE(SUM(amount),0) FROM credits WHERE biz_id=? AND used_invoice_id IS NULL", (g.biz_id,)).fetchone()[0]
 
     return jsonify({
         'today': {'revenue': t['r'], 'sessions': t['c']},
         'week': {'revenue': w['r'], 'sessions': w['c']},
         'month': {'revenue': m['r'], 'sessions': m['c']},
         'all_time': {'revenue': a['r'], 'sessions': a['c']},
-        'swap_fees': swap_fees
+        'swap_fees': swap_fees,
+        'platform_earned': platform_earned,
+        'credits_outstanding': round(credits_outstanding, 2)
     })
 
 
@@ -1023,7 +1045,8 @@ def c_profile(token):
     return jsonify({
         'name': g.client['name'], 'phone': g.client['phone'], 'email': g.client['email'],
         'business': g.biz['name'], 'biz_phone': g.biz['phone'],
-        'visits': visits, 'session_options': session_opts
+        'visits': visits, 'session_options': session_opts,
+        'credit_balance': get_credit_balance(db, g.biz_id, g.client_id)
     })
 
 @app.route('/api/client/<token>/consent', methods=['POST'])
@@ -1115,46 +1138,67 @@ def c_book(token):
     service = {45: 'Nothing Box — 45 min', 60: 'Nothing Box Extended — 60 min', 90: 'Nothing Box Deep — 90 min'}.get(session_type, 'Nothing Box Session')
     is_free = 'Try for Free' in (g.client.get('notes') or '')
 
-    if USE_STRIPE and not is_free and price > 0:
+    # Apply credits
+    credit_bal = get_credit_balance(db, g.biz_id, g.client_id)
+    credit_used = min(credit_bal, price) if not is_free else 0
+    charge_amount = price - credit_used if not is_free else 0
+
+    if USE_STRIPE and not is_free and charge_amount > 0:
         db.execute("UPDATE slots SET client_id=?,status='held',service=?,price=? WHERE id=?",
             (g.client_id, service, price, slot_id))
         db.commit()
         inv_token = gen_token()
         try:
+            line_items = [{
+                'price_data': {
+                    'currency': 'usd',
+                    'unit_amount': int(charge_amount * 100),
+                    'product_data': {
+                        'name': service,
+                        'description': f"{slot['date']} at {slot['time']}" + (f" (${credit_used:.2f} credit applied)" if credit_used > 0 else ""),
+                    },
+                },
+                'quantity': 1,
+            }]
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
-                line_items=[{
-                    'price_data': {
-                        'currency': 'usd',
-                        'unit_amount': int(price * 100),
-                        'product_data': {
-                            'name': service,
-                            'description': f"{slot['date']} at {slot['time']}",
-                        },
-                    },
-                    'quantity': 1,
-                }],
+                line_items=line_items,
                 mode='payment',
                 customer_email=g.client.get('email') or None,
-                metadata={'slot_id': str(slot_id), 'client_id': str(g.client_id), 'biz_id': str(g.biz_id), 'inv_token': inv_token, 'client_token': g.client.get('token','')},
+                metadata={'slot_id': str(slot_id), 'client_id': str(g.client_id), 'biz_id': str(g.biz_id), 'inv_token': inv_token, 'client_token': g.client.get('token',''), 'credit_used': str(credit_used)},
                 success_url=BASE_URL + '/api/stripe/book-success?session_id={CHECKOUT_SESSION_ID}',
                 cancel_url=BASE_URL + '/api/stripe/book-cancel?slot_id=' + str(slot_id) + '&token=' + g.client.get('token',''),
             )
-            return jsonify({'status': 'checkout', 'checkout_url': session.url})
+            return jsonify({'status': 'checkout', 'checkout_url': session.url, 'credit_applied': credit_used})
         except Exception as e:
             db.execute("UPDATE slots SET client_id=NULL,status='open',service=NULL,price=0 WHERE id=?", (slot_id,))
             db.commit()
             return jsonify({'error': f'Payment setup failed: {e}'}), 500
     else:
+        # Free, fully credit-covered, or no Stripe
         db.execute("UPDATE slots SET client_id=?,service=?,price=?,status='booked' WHERE id=?",
             (g.client_id, service, price if not is_free else 0, slot_id))
         inv_token = gen_token()
         db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token,status) VALUES (?,?,?,?,?,?)",
-            (g.biz_id, g.client_id, slot_id, price if not is_free else 0, inv_token, 'paid' if is_free else 'unpaid'))
+            (g.biz_id, g.client_id, slot_id, charge_amount, inv_token, 'paid'))
+        # Mark credits as used
+        if credit_used > 0:
+            remaining = credit_used
+            inv_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            unused = db.execute("SELECT id,amount FROM credits WHERE biz_id=? AND client_id=? AND used_invoice_id IS NULL ORDER BY created_at ASC",
+                (g.biz_id, g.client_id)).fetchall()
+            for cr in unused:
+                if remaining <= 0: break
+                use = min(cr['amount'], remaining)
+                db.execute("UPDATE credits SET used_invoice_id=? WHERE id=?", (inv_id, cr['id']))
+                remaining -= use
         db.commit()
+        msg = f"Hi {g.client['name'].split()[0]}! Confirmed: {service} at {slot['time']} on {slot['date']}."
+        if credit_used > 0: msg += f" ${credit_used:.2f} credit applied."
+        if is_free: msg += " No charge — free session."
         if g.client.get('phone'):
-            send_sms(g.client['phone'], f"Hi {g.client['name'].split()[0]}! Confirmed: {service} at {slot['time']} on {slot['date']}.", biz_id=g.biz_id)
-        return jsonify({'status':'booked','slot_id':slot_id})
+            send_sms(g.client['phone'], msg, biz_id=g.biz_id)
+        return jsonify({'status':'booked','slot_id':slot_id,'credit_applied':credit_used})
 
 @app.route('/api/client/<token>/nudge/<int:nid>/respond', methods=['POST'])
 @require_client
@@ -1224,23 +1268,38 @@ def _resolve(db, n, status):
     fc = db.execute("SELECT * FROM clients WHERE id=?", (n['from_client_id'],)).fetchone()
     tc = db.execute("SELECT * FROM clients WHERE id=?", (n['to_client_id'],)).fetchone()
     if status == 'accepted':
+        # Split fee: platform takes a cut, seller gets the rest as credit
+        fee = n['fee'] or 0
+        platform_pct = (biz['platform_fee_pct'] if biz and biz['platform_fee_pct'] else 20) / 100
+        platform_cut = round(fee * platform_pct, 2)
+        seller_credit = round(fee - platform_cut, 2)
+
         ts = db.execute("SELECT * FROM slots WHERE id=?", (n['to_slot_id'],)).fetchone()
         if n['from_slot_id']:
-            # SWAP mode: both have appointments, trade slots
+            # SWAP mode
             fs = db.execute("SELECT * FROM slots WHERE id=?", (n['from_slot_id'],)).fetchone()
             if fs and ts:
                 db.execute("UPDATE slots SET client_id=?,service=?,price=? WHERE id=?", (ts['client_id'],ts['service'],ts['price'],fs['id']))
                 db.execute("UPDATE slots SET client_id=?,service=?,price=? WHERE id=?", (fs['client_id'],fs['service'],fs['price'],ts['id']))
-            if tc and tc['phone']: send_sms(tc['phone'], f"Swap confirmed! You earned ${n['fee']:.2f} and moved to {fs['time']}. Payment processing.", biz_id=n['biz_id'])
-            if fc and fc['phone']: send_sms(fc['phone'], f"{tc['name'].split()[0]} accepted! You're at {ts['time']} now. ${n['fee']:.2f} payment initiated.", biz_id=n['biz_id'])
+            # Credit the seller
+            if seller_credit > 0:
+                db.execute("INSERT INTO credits (biz_id,client_id,amount,source,nudge_id) VALUES (?,?,?,?,?)",
+                    (n['biz_id'], n['to_client_id'], seller_credit, f"Nudge swap — sold {ts['time'] if ts else '?'} slot", n['id']))
+            if tc and tc['phone']: send_sms(tc['phone'], f"Swap confirmed! ${seller_credit:.2f} credit added to your account. Moved to {fs['time'] if fs else '?'}.", biz_id=n['biz_id'])
+            if fc and fc['phone']: send_sms(fc['phone'], f"{tc['name'].split()[0]} accepted! You're at {ts['time'] if ts else '?'} now. ${fee:.2f} charged.", biz_id=n['biz_id'])
         else:
-            # BUY mode: buyer gets the slot, seller loses it and gets paid
+            # BUY mode
             if ts:
                 db.execute("UPDATE slots SET client_id=?,service='Nothing Box Session',price=? WHERE id=?", (n['from_client_id'], biz['session_price'], ts['id']))
                 inv_token = gen_token()
                 db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token) VALUES (?,?,?,?,?)", (n['biz_id'], n['from_client_id'], ts['id'], biz['session_price'], inv_token))
-            if tc and tc['phone']: send_sms(tc['phone'], f"Slot sold! You earned ${n['fee']:.2f} for your {ts['time']} slot. You can book a new time from your portal.", biz_id=n['biz_id'])
-            if fc and fc['phone']: send_sms(fc['phone'], f"You got the {ts['time']} slot! ${n['fee']:.2f} payment initiated. Check your portal for details.", biz_id=n['biz_id'])
+            # Credit the seller
+            if seller_credit > 0:
+                db.execute("INSERT INTO credits (biz_id,client_id,amount,source,nudge_id) VALUES (?,?,?,?,?)",
+                    (n['biz_id'], n['to_client_id'], seller_credit, f"Nudge buy — sold {ts['time'] if ts else '?'} slot", n['id']))
+            if tc and tc['phone']: send_sms(tc['phone'], f"Slot sold! ${seller_credit:.2f} credit added. Book a new time from your portal.", biz_id=n['biz_id'])
+            if fc and fc['phone']: send_sms(fc['phone'], f"You got the {ts['time'] if ts else '?'} slot! ${fee:.2f} charged.", biz_id=n['biz_id'])
+        print(f"\n  *** NUDGE ACCEPTED: fee=${fee:.2f} | platform=${platform_cut:.2f} | seller credit=${seller_credit:.2f} ***\n")
     else:
         mx = biz['max_offers'] if biz else 2
         rem = mx - get_attempts(db, n['biz_id'], n['from_client_id'], n['to_slot_id'])
