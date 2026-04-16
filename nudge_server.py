@@ -236,6 +236,25 @@ def init_db():
     for col, ctype, default in [('practitioner_note','TEXT','NULL'),('session_data','TEXT','NULL'),('sent_at','TIMESTAMP','NULL'),('status','TEXT',"'draft'")]:
         try: db.execute(f"ALTER TABLE reports ADD COLUMN {col} {ctype} DEFAULT {default}")
         except: pass
+    for col, ctype, default in [
+        ('email','TEXT','NULL'),
+        ('website','TEXT','NULL'),
+        ('service_area','TEXT','NULL'),
+        ('practitioner_name','TEXT','NULL'),
+        ('practitioner_initial','TEXT','NULL'),
+        ('pack_price','REAL','250'),
+        ('free_trial','INTEGER','1'),
+        ('buffer_min','INTEGER','15'),
+        ('available_days','TEXT',"'1,2,3,4,5,6,7'"),
+        ('sms_signature','TEXT','NULL'),
+        ('auto_reply','TEXT','NULL'),
+        ('notify_email','INTEGER','1'),
+        ('notify_sms','INTEGER','0'),
+        ('default_report_note','TEXT','NULL'),
+        ('data_retention_days','INTEGER','0')
+    ]:
+        try: db.execute(f"ALTER TABLE businesses ADD COLUMN {col} {ctype} DEFAULT {default}")
+        except: pass
     try: db.execute("ALTER TABLE businesses ADD COLUMN platform_fee_pct INTEGER DEFAULT 20")
     except: pass
     cur = db.execute("SELECT COUNT(*) FROM businesses")
@@ -953,11 +972,41 @@ def a_stats():
 def a_settings():
     db = get_db()
     if request.method == 'POST':
-        d = request.json
-        db.execute("UPDATE businesses SET name=?,phone=?,session_price=?,session_duration=?,default_nudge_pct=?,offer_timer_min=?,max_offers=?,platform_fee_pct=? WHERE id=?",
-            (d.get('name'),d.get('phone'),d.get('price'),d.get('duration'),d.get('default_pct'),d.get('timer'),d.get('max_offers',2),d.get('platform_fee_pct',20),g.biz_id))
-        db.commit(); return jsonify({'status':'saved'})
-    return jsonify(g.biz)
+        d = request.json or {}
+        # Build UPDATE dynamically so we don't overwrite fields the client didn't send
+        updatable = ['name','phone','email','website','service_area','practitioner_name','practitioner_initial',
+                     'session_price','pack_price','session_duration','buffer_min','available_days',
+                     'start_hour','end_hour','offer_timer_min','max_offers','default_nudge_pct','platform_fee_pct',
+                     'free_trial','sms_signature','auto_reply','notify_email','notify_sms',
+                     'default_report_note','data_retention_days']
+        # Map frontend legacy field names to column names
+        aliases = {'price':'session_price','duration':'session_duration','timer':'offer_timer_min','default_pct':'default_nudge_pct'}
+        sets, vals = [], []
+        for k in updatable:
+            src = k
+            # Accept alias keys too
+            for a, real in aliases.items():
+                if real == k and a in d and k not in d:
+                    src = a; break
+            if src in d:
+                sets.append(f"{k}=?")
+                vals.append(d.get(src))
+        if sets:
+            vals.append(g.biz_id)
+            db.execute(f"UPDATE businesses SET {','.join(sets)} WHERE id=?", vals)
+            db.commit()
+        return jsonify({'status':'saved'})
+    # GET — return all settings plus integration status (read-only indicators)
+    out = dict(g.biz)
+    out.pop('api_key', None)      # never return this
+    out.pop('admin_pin', None)    # never return this
+    out['integrations'] = {
+        'stripe': {'configured': bool(os.environ.get('STRIPE_SK')),
+                   'mode': ('live' if (os.environ.get('STRIPE_SK','').startswith('sk_live_')) else ('test' if os.environ.get('STRIPE_SK','').startswith('sk_test_') else 'none'))},
+        'twilio': {'configured': USE_TWILIO, 'from': TWILIO_FROM if USE_TWILIO else None},
+        'claude': {'configured': bool(os.environ.get('CLAUDE_API_KEY') or os.environ.get('ANTHROPIC_API_KEY'))}
+    }
+    return jsonify(out)
 
 @app.route('/api/admin/report', methods=['POST'])
 @require_admin

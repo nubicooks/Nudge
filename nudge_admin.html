@@ -120,7 +120,28 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 .mdl-a{display:flex;gap:6px;margin-top:16px;justify-content:flex-end}
 .empty{text-align:center;padding:16px;color:var(--brown3);font-size:.6rem}
 
+/* Settings modal — collapsible sections */
+.set-sec{border:1.5px solid var(--cream2);border-radius:10px;margin:10px 0;overflow:hidden;background:var(--white)}
+.set-head{padding:10px 14px;background:var(--cream);cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:.7rem;color:var(--brown);user-select:none;transition:background .15s}
+.set-head:hover{background:var(--cream2)}
+.set-chev{font-size:.75rem;color:var(--brown3);transition:transform .15s}
+.set-body{padding:12px 14px;border-top:1.5px solid var(--cream2);background:var(--white)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dchip{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border:1.5px solid var(--cream2);border-radius:6px;background:var(--cream);cursor:pointer;font-size:.6rem;color:var(--brown2);user-select:none;transition:all .15s}
+.dchip:hover{border-color:var(--brown3)}
+.dchip input{width:auto;margin:0;accent-color:var(--red)}
+.dchip input:checked ~ span{color:var(--brown);font-weight:600}
+.dchip:has(input:checked){background:rgba(204,0,0,.06);border-color:var(--red)}
+.int-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--cream);border-radius:8px;margin:6px 0}
+.int-name{font-weight:700;font-size:.65rem;color:var(--brown)}
+.int-sub{font-size:.5rem;color:var(--brown3);margin-top:2px}
+.int-status{font-family:'IBM Plex Mono',monospace;font-size:.55rem;padding:3px 10px;border-radius:12px;letter-spacing:1px;text-transform:uppercase;font-weight:700}
+.int-status.ok{background:rgba(0,128,0,.1);color:var(--green)}
+.int-status.warn{background:rgba(230,165,90,.15);color:var(--gold)}
+.int-status.off{background:rgba(140,110,80,.1);color:var(--brown3)}
+
 @media(max-width:960px){.wrap{grid-template-columns:1fr}}
+@media(max-width:600px){.row2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -246,7 +267,165 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <div class="mbg" id="mClient"><div class="mdl"><h3 id="cdName"></h3><div id="cdBody"></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mClient')">Close</button><button class="btn btn-g" onclick="cm('mClient');var n=document.getElementById('cdName').textContent;var cid=parseInt(document.getElementById('cdBody').dataset.cid||0);if(cid){showTab('inbox');setTimeout(function(){openChat(cid,n)},200)}">Message</button></div></div></div>
 
-<div class="mbg" id="mSet"><div class="mdl"><h3>Settings</h3><label>Business Name</label><input id="sName" value="the Sol Standard"><label>Phone</label><input id="sPhone" value="(240) 356-3393"><label>Session Price ($)</label><input id="sPrice" type="number" value="75"><label>Duration (min)</label><input id="sDur" type="number" value="45"><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"><label>Platform Fee (%)</label><input id="sPlatFee" type="number" value="20" min="0" max="100"><div style="font-size:.45rem;color:var(--brown3);margin-top:2px">Your cut from each nudge transaction. Remainder becomes client credit.</div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--cream2)"><div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Database Backup</div><div style="display:flex;gap:6px"><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="doBackup()">Create Backup</button><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="downloadBackup()">Download Backup</button></div><div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Auto-backs up daily. Download a copy to keep offline.</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--cream2)"><div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Session</div><button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="resetPIN()">Change Admin PIN</button><div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Clears saved PIN and re-prompts.</div></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Cancel</button><button class="btn btn-g" onclick="saveSet()">Save</button></div></div></div>
+<div class="mbg" id="mSet"><div class="mdl" style="width:560px">
+<h3>Settings</h3>
+<div style="font-size:.55rem;color:var(--brown3);margin-top:-8px;margin-bottom:14px">the Sol Standard &middot; the Nothing Box</div>
+
+<!-- IDENTITY -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecIdentity')">
+    <span>Identity</span><span class="set-chev" id="sSecIdentity-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecIdentity">
+    <label>Business Name</label><input id="sName" value="the Sol Standard">
+    <div class="row2">
+      <div><label>Practitioner First Name</label><input id="sPractName" placeholder="Ndubisi"></div>
+      <div><label>Initial (report avatar)</label><input id="sPractInit" maxlength="1" placeholder="N"></div>
+    </div>
+    <label>Public Phone</label><input id="sPhone" value="(240) 356-3393">
+    <label>Email</label><input id="sEmail" type="email" placeholder="hello@thesolstandard.com">
+    <label>Website</label><input id="sWebsite" placeholder="https://thesolstandard.com">
+    <label>Service Area</label><input id="sArea" placeholder="Maryland / DC">
+  </div>
+</div>
+
+<!-- SCHEDULE -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecSchedule')">
+    <span>Schedule</span><span class="set-chev" id="sSecSchedule-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecSchedule" style="display:none">
+    <div class="row2">
+      <div><label>Start Hour (24h)</label><input id="sStart" type="number" min="0" max="23" value="9"></div>
+      <div><label>End Hour (24h)</label><input id="sEnd" type="number" min="1" max="24" value="18"></div>
+    </div>
+    <div class="row2">
+      <div><label>Session Duration (min)</label><input id="sDur" type="number" value="45"></div>
+      <div><label>Buffer Between (min)</label><input id="sBuf" type="number" value="15"></div>
+    </div>
+    <label>Available Days</label>
+    <div id="sDays" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+      <label class="dchip"><input type="checkbox" value="1"><span>Mon</span></label>
+      <label class="dchip"><input type="checkbox" value="2"><span>Tue</span></label>
+      <label class="dchip"><input type="checkbox" value="3"><span>Wed</span></label>
+      <label class="dchip"><input type="checkbox" value="4"><span>Thu</span></label>
+      <label class="dchip"><input type="checkbox" value="5"><span>Fri</span></label>
+      <label class="dchip"><input type="checkbox" value="6"><span>Sat</span></label>
+      <label class="dchip"><input type="checkbox" value="7"><span>Sun</span></label>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecPricing')">
+    <span>Pricing</span><span class="set-chev" id="sSecPricing-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecPricing" style="display:none">
+    <div class="row2">
+      <div><label>Single Session ($)</label><input id="sPrice" type="number" value="75"></div>
+      <div><label>4-Pack ($)</label><input id="sPack" type="number" value="250"></div>
+    </div>
+    <label class="dchip" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:6px 10px"><input id="sFree" type="checkbox"><span>Offer a free first session</span></label>
+    <div style="font-size:.48rem;color:var(--brown3);margin-top:4px">Shows on the public booking page while you're in early trial.</div>
+  </div>
+</div>
+
+<!-- NUDGE ECONOMICS -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecNudge')">
+    <span>Nudge &mdash; swap economics</span><span class="set-chev" id="sSecNudge-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecNudge" style="display:none">
+    <div class="row2">
+      <div><label>Offer Timer (min)</label><input id="sTimer" type="number" value="30"></div>
+      <div><label>Default Swap Fee (%)</label><input id="sPct" type="number" value="20" min="0" max="100"></div>
+    </div>
+    <label>Max Offers Per Slot</label><input id="sMaxOff" type="number" value="2">
+    <div style="font-size:.48rem;color:var(--brown3);margin-top:4px">How many offers can queue on a single open slot before it closes.</div>
+  </div>
+</div>
+
+<!-- COMMUNICATION -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecComm')">
+    <span>Communication</span><span class="set-chev" id="sSecComm-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecComm" style="display:none">
+    <label>SMS Signature</label><input id="sSmsSig" placeholder="— Ndubisi, the Sol Standard">
+    <div style="font-size:.48rem;color:var(--brown3);margin-top:2px">Appended to outbound SMS so clients know it's you.</div>
+    <label style="margin-top:10px">Auto-reply when you're off-hours</label>
+    <textarea id="sAutoReply" placeholder="Thanks for reaching out. I'll get back to you within a day."></textarea>
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">
+      <label class="dchip" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px"><input id="sNotifEmail" type="checkbox"><span>Notify me by email on new inquiries</span></label>
+      <label class="dchip" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px"><input id="sNotifSms" type="checkbox"><span>Notify me by SMS on new inquiries</span></label>
+    </div>
+  </div>
+</div>
+
+<!-- REPORTS -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecReports')">
+    <span>Reports</span><span class="set-chev" id="sSecReports-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecReports" style="display:none">
+    <label>Default Practitioner's Corner Note</label>
+    <textarea id="sDefNote" placeholder="A few things from where I was sitting during your session..." style="min-height:80px"></textarea>
+    <div style="font-size:.48rem;color:var(--brown3);margin-top:2px">Pre-filled when you open Reports for a client. You can edit per session.</div>
+  </div>
+</div>
+
+<!-- INTEGRATIONS -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecInt')">
+    <span>Integrations</span><span class="set-chev" id="sSecInt-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecInt" style="display:none">
+    <div class="int-row">
+      <div><div class="int-name">Stripe</div><div class="int-sub" id="sIntStripe">Checking…</div></div>
+      <div class="int-status" id="sIntStripeS">—</div>
+    </div>
+    <div class="int-row">
+      <div><div class="int-name">Twilio SMS</div><div class="int-sub" id="sIntTwilio">Checking…</div></div>
+      <div class="int-status" id="sIntTwilioS">—</div>
+    </div>
+    <div class="int-row">
+      <div><div class="int-name">Claude API (report generation)</div><div class="int-sub" id="sIntClaude">Checking…</div></div>
+      <div class="int-status" id="sIntClaudeS">—</div>
+    </div>
+    <div style="font-size:.48rem;color:var(--brown3);margin-top:8px">Configured via Railway environment variables. Shown here read-only.</div>
+  </div>
+</div>
+
+<!-- DATA & SAFETY -->
+<div class="set-sec">
+  <div class="set-head" onclick="stg('sSecData')">
+    <span>Data &amp; Safety</span><span class="set-chev" id="sSecData-c">▾</span>
+  </div>
+  <div class="set-body" id="sSecData" style="display:none">
+    <label>Session Data Retention (days)</label>
+    <input id="sRetention" type="number" value="0" min="0">
+    <div style="font-size:.48rem;color:var(--brown3);margin-top:2px">Auto-delete archived client records older than this. 0 = never auto-delete.</div>
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--cream2)">
+      <div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Database Backup</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="doBackup()">Create Backup</button>
+        <button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="downloadBackup()">Download Backup</button>
+      </div>
+      <div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Auto-backs up daily. Download a copy to keep offline.</div>
+    </div>
+
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--cream2)">
+      <div style="font-weight:700;font-size:.55rem;margin-bottom:6px">Admin PIN</div>
+      <button class="btn btn-o" style="font-size:.5rem;padding:4px 10px" onclick="resetPIN()">Change Admin PIN</button>
+      <div style="font-size:.4rem;color:var(--brown3);margin-top:4px">Clears saved PIN and re-prompts.</div>
+    </div>
+  </div>
+</div>
+
+<div class="mdl-a"><button class="btn btn-o" onclick="cm('mSet')">Close</button><button class="btn btn-g" onclick="saveSet()">Save Changes</button></div>
+</div></div>
 
 <div class="mbg" id="mDelete"><div class="mdl"><h3 style="color:var(--red)">Delete Client</h3><p id="delInfo" style="font-size:.7rem;color:var(--brown2);margin-bottom:10px"></p><label>Reason (optional)</label><textarea id="delReason" placeholder="Why are you removing this client?"></textarea><p style="font-size:.55rem;color:var(--brown3);margin-top:8px">Their upcoming appointments will be cancelled. You can restore them later from the Deleted filter.</p><div class="mdl-a"><button class="btn btn-o" onclick="cm('mDelete')">Cancel</button><button class="btn btn-warn" onclick="doDelete()">Delete Client</button></div></div></div>
 
@@ -886,8 +1065,113 @@ async function doBackup(){
 async function downloadBackup(){window.open(A+'/backup/download','_blank')}
 
 // ═══ SETTINGS ═══
-function openSet(){document.getElementById('mSet').classList.add('show')}
-async function saveSet(){await fetch(A+'/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:document.getElementById('sName').value,phone:document.getElementById('sPhone').value,price:parseInt(document.getElementById('sPrice').value),duration:parseInt(document.getElementById('sDur').value),timer:parseInt(document.getElementById('sTimer').value),platform_fee_pct:parseInt(document.getElementById('sPlatFee').value)})});cm('mSet');draw()}
+function stg(id){
+  var body=document.getElementById(id);
+  var chev=document.getElementById(id+'-c');
+  if(!body||!chev)return;
+  var open=body.style.display!=='none';
+  body.style.display=open?'none':'block';
+  chev.textContent=open?'▸':'▾';
+}
+
+async function openSet(){
+  document.getElementById('mSet').classList.add('show');
+  try{
+    var r=await fetch(A+'/settings');
+    if(!r.ok)return;
+    var s=await r.json();
+    // Identity
+    if(s.name)document.getElementById('sName').value=s.name;
+    document.getElementById('sPractName').value=s.practitioner_name||'';
+    document.getElementById('sPractInit').value=s.practitioner_initial||'';
+    if(s.phone)document.getElementById('sPhone').value=s.phone;
+    document.getElementById('sEmail').value=s.email||'';
+    document.getElementById('sWebsite').value=s.website||'';
+    document.getElementById('sArea').value=s.service_area||'';
+    // Schedule
+    document.getElementById('sStart').value=s.start_hour!=null?s.start_hour:9;
+    document.getElementById('sEnd').value=s.end_hour!=null?s.end_hour:18;
+    if(s.session_duration)document.getElementById('sDur').value=s.session_duration;
+    document.getElementById('sBuf').value=s.buffer_min!=null?s.buffer_min:15;
+    var days=(s.available_days||'1,2,3,4,5,6,7').split(',').map(function(x){return x.trim()});
+    document.querySelectorAll('#sDays input').forEach(function(cb){cb.checked=days.indexOf(cb.value)>=0});
+    // Pricing
+    if(s.session_price)document.getElementById('sPrice').value=s.session_price;
+    document.getElementById('sPack').value=s.pack_price!=null?s.pack_price:250;
+    document.getElementById('sFree').checked=!!s.free_trial;
+    // Nudge economics
+    if(s.offer_timer_min)document.getElementById('sTimer').value=s.offer_timer_min;
+    if(s.default_nudge_pct!=null)document.getElementById('sPct').value=s.default_nudge_pct;
+    if(s.max_offers!=null)document.getElementById('sMaxOff').value=s.max_offers;
+    // Communication
+    document.getElementById('sSmsSig').value=s.sms_signature||'';
+    document.getElementById('sAutoReply').value=s.auto_reply||'';
+    document.getElementById('sNotifEmail').checked=s.notify_email!=null?!!s.notify_email:true;
+    document.getElementById('sNotifSms').checked=!!s.notify_sms;
+    // Reports
+    document.getElementById('sDefNote').value=s.default_report_note||'';
+    // Data
+    document.getElementById('sRetention').value=s.data_retention_days!=null?s.data_retention_days:0;
+    // Integrations — render status
+    var it=s.integrations||{};
+    var st=it.stripe||{};
+    var subSt=st.configured?('Configured in '+st.mode+' mode'):'Not configured (set STRIPE_SK env var)';
+    var clsSt=st.configured?(st.mode==='live'?'ok':'warn'):'off';
+    var labSt=st.configured?(st.mode==='live'?'LIVE':'TEST'):'OFF';
+    document.getElementById('sIntStripe').textContent=subSt;
+    var eSt=document.getElementById('sIntStripeS');eSt.textContent=labSt;eSt.className='int-status '+clsSt;
+    var tw=it.twilio||{};
+    document.getElementById('sIntTwilio').textContent=tw.configured?('Sending from '+(tw.from||'')):'Not configured';
+    var eTw=document.getElementById('sIntTwilioS');eTw.textContent=tw.configured?'ON':'OFF';eTw.className='int-status '+(tw.configured?'ok':'off');
+    var cl=it.claude||{};
+    document.getElementById('sIntClaude').textContent=cl.configured?'API key set':'Not configured (set CLAUDE_API_KEY env var)';
+    var eCl=document.getElementById('sIntClaudeS');eCl.textContent=cl.configured?'ON':'OFF';eCl.className='int-status '+(cl.configured?'ok':'off');
+  }catch(e){console.error('openSet failed:',e)}
+}
+
+async function saveSet(){
+  var days=[];
+  document.querySelectorAll('#sDays input:checked').forEach(function(cb){days.push(cb.value)});
+  var payload={
+    // Identity
+    name:document.getElementById('sName').value.trim(),
+    practitioner_name:document.getElementById('sPractName').value.trim(),
+    practitioner_initial:document.getElementById('sPractInit').value.trim().toUpperCase(),
+    phone:document.getElementById('sPhone').value.trim(),
+    email:document.getElementById('sEmail').value.trim(),
+    website:document.getElementById('sWebsite').value.trim(),
+    service_area:document.getElementById('sArea').value.trim(),
+    // Schedule
+    start_hour:parseInt(document.getElementById('sStart').value)||9,
+    end_hour:parseInt(document.getElementById('sEnd').value)||18,
+    session_duration:parseInt(document.getElementById('sDur').value)||45,
+    buffer_min:parseInt(document.getElementById('sBuf').value)||0,
+    available_days:days.join(','),
+    // Pricing
+    session_price:parseFloat(document.getElementById('sPrice').value)||75,
+    pack_price:parseFloat(document.getElementById('sPack').value)||250,
+    free_trial:document.getElementById('sFree').checked?1:0,
+    // Nudge
+    offer_timer_min:parseInt(document.getElementById('sTimer').value)||30,
+    default_nudge_pct:parseInt(document.getElementById('sPct').value)||20,
+    max_offers:parseInt(document.getElementById('sMaxOff').value)||2,
+    // Communication
+    sms_signature:document.getElementById('sSmsSig').value,
+    auto_reply:document.getElementById('sAutoReply').value,
+    notify_email:document.getElementById('sNotifEmail').checked?1:0,
+    notify_sms:document.getElementById('sNotifSms').checked?1:0,
+    // Reports
+    default_report_note:document.getElementById('sDefNote').value,
+    // Data
+    data_retention_days:parseInt(document.getElementById('sRetention').value)||0
+  };
+  try{
+    var r=await fetch(A+'/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok){alert('Save failed: '+r.status);return}
+    cm('mSet');
+    if(typeof draw==='function')draw();
+  }catch(e){alert('Save failed: '+(e.message||e))}
+}
 function cm(id){document.getElementById(id).classList.remove('show')}
 document.querySelectorAll('.mbg').forEach(function(bg){bg.addEventListener('click',function(e){if(e.target===bg)bg.classList.remove('show')})});
 
