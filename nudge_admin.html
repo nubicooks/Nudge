@@ -164,6 +164,7 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
       <div class="pnl-t" id="calTitle">April 2026</div>
       <div style="display:flex;gap:8px;align-items:center">
         <div class="vtog"><button id="vMonth" onclick="setV('month')">Month</button><button id="vWeek" onclick="setV('week')">Week</button><button id="vDay" onclick="setV('day')">Day</button></div>
+        <button class="btn btn-o" style="font-size:.55rem;padding:4px 10px" onclick="openBlock()">+ Block Time</button>
         <div style="display:flex;gap:4px"><button class="mn-btn" onclick="nav(-1)">&lsaquo;</button><button class="mn-btn" onclick="goToday()">&bull;</button><button class="mn-btn" onclick="nav(1)">&rsaquo;</button></div>
       </div>
     </div>
@@ -183,6 +184,9 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
   <!-- NUDGE ACTIVITY -->
   <div class="pnl"><div class="pnl-h"><div class="pnl-t">Nudge Activity</div><span id="naBadge" style="font-family:'IBM Plex Mono';font-size:.5rem;color:var(--gold)"></span></div><div class="pnl-f" id="naBox"><div class="empty">No activity</div></div></div>
+
+  <!-- BLOCKED DAYS -->
+  <div class="pnl"><div class="pnl-h"><div class="pnl-t">Blocked Time</div><button class="btn btn-o" style="font-size:.45rem;padding:2px 8px" onclick="openBlock()">+ Block</button></div><div class="pnl-f" id="blBox"><div class="empty">Loading...</div></div></div>
 
   <!-- SMS LOG -->
   <div class="pnl"><div class="pnl-h"><div class="pnl-t">SMS Log</div><button class="btn btn-gray" style="font-size:.45rem;padding:2px 6px" onclick="exportCSV('appointments')">Export Appts</button></div><div class="pnl-f" id="smBox"><div class="empty">No messages</div></div></div>
@@ -444,6 +448,44 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
     <button class="btn btn-o" id="rpBtnUpdateNote" onclick="rpUpdateNote()" style="display:none">Update Note</button>
     <button class="btn btn-g" id="rpBtnCreate" onclick="rpCreate()">Create Draft</button>
     <button class="btn btn-g" id="rpBtnSend" onclick="rpSend()" style="display:none">Send to Client</button>
+  </div>
+</div></div>
+
+<!-- BLOCK TIME MODAL -->
+<div class="mbg" id="mBlock"><div class="mdl" style="max-width:500px">
+  <h3>Block Time</h3>
+  <div style="font-size:.55rem;color:var(--brown3);margin-top:-8px;margin-bottom:12px">Prevent clients from booking in a date range.</div>
+
+  <div style="display:flex;gap:6px;margin-bottom:12px">
+    <button class="btn btn-o" id="bkModeSingle" onclick="bkMode('single')" style="flex:1;font-size:.6rem">Single Day</button>
+    <button class="btn btn-o" id="bkModeRange" onclick="bkMode('range')" style="flex:1;font-size:.6rem">Date Range</button>
+  </div>
+
+  <div id="bkFieldsSingle">
+    <label>Date</label>
+    <input id="bkDate" type="date">
+  </div>
+
+  <div id="bkFieldsRange" style="display:none">
+    <div class="row2">
+      <div><label>Start Date</label><input id="bkStart" type="date"></div>
+      <div><label>End Date</label><input id="bkEnd" type="date"></div>
+    </div>
+  </div>
+
+  <label>Reason (shows on calendar)</label>
+  <input id="bkReason" placeholder="Personal day" value="Blocked">
+
+  <div id="bkWarn" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(230,165,90,.1);border:1px solid var(--gold);border-radius:6px">
+    <div style="font-weight:700;font-size:.65rem;color:var(--gold);margin-bottom:4px">Existing bookings in this range</div>
+    <div id="bkWarnText" style="font-size:.6rem;color:var(--brown2);line-height:1.5"></div>
+    <label class="dchip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;margin-top:8px"><input id="bkForce" type="checkbox"><span>Also cancel the existing bookings</span></label>
+    <div style="font-size:.5rem;color:var(--red);margin-top:4px">If unchecked, booked slots are left alone and you'll need to contact those clients to reschedule.</div>
+  </div>
+
+  <div class="mdl-a">
+    <button class="btn btn-o" onclick="cm('mBlock')">Cancel</button>
+    <button class="btn btn-warn" onclick="doBlock()">Block Time</button>
   </div>
 </div></div>
 
@@ -921,6 +963,103 @@ function rpPreview(){
   if(!rpCurReportId){alert('No report selected');return}
 }
 
+// ═══ BLOCK TIME ═══
+var bkCurMode='single';
+
+function openBlock(){
+  bkMode('single');
+  // Pre-fill with today
+  var td=new Date().toISOString().slice(0,10);
+  document.getElementById('bkDate').value=td;
+  document.getElementById('bkStart').value=td;
+  document.getElementById('bkEnd').value=td;
+  document.getElementById('bkReason').value='Blocked';
+  document.getElementById('bkForce').checked=false;
+  document.getElementById('bkWarn').style.display='none';
+  document.getElementById('mBlock').classList.add('show');
+}
+
+function bkMode(m){
+  bkCurMode=m;
+  document.getElementById('bkFieldsSingle').style.display=m==='single'?'block':'none';
+  document.getElementById('bkFieldsRange').style.display=m==='range'?'block':'none';
+  document.getElementById('bkModeSingle').style.background=m==='single'?'var(--red)':'var(--white)';
+  document.getElementById('bkModeSingle').style.color=m==='single'?'#fff':'var(--brown)';
+  document.getElementById('bkModeRange').style.background=m==='range'?'var(--red)':'var(--white)';
+  document.getElementById('bkModeRange').style.color=m==='range'?'#fff':'var(--brown)';
+  document.getElementById('bkWarn').style.display='none';
+}
+
+async function doBlock(){
+  var start, end;
+  if(bkCurMode==='single'){
+    start=document.getElementById('bkDate').value;
+    end=start;
+  }else{
+    start=document.getElementById('bkStart').value;
+    end=document.getElementById('bkEnd').value;
+  }
+  if(!start||!end){alert('Pick a date');return}
+  if(end<start){alert('End date must be on or after start date');return}
+  var reason=document.getElementById('bkReason').value.trim()||'Blocked';
+  var force=document.getElementById('bkForce').checked;
+  try{
+    var r=await fetch(A+'/block-range',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({start_date:start,end_date:end,reason:reason,force:force})});
+    var d=await r.json();
+    if(r.status===409&&d.error==='has_bookings'){
+      // Show warning and let user confirm
+      document.getElementById('bkWarnText').textContent=d.message;
+      document.getElementById('bkWarn').style.display='block';
+      return;
+    }
+    if(d.error){alert(d.error);return}
+    cm('mBlock');
+    var msg=d.blocked_count+' slot(s) blocked';
+    if(d.cancelled_bookings>0)msg+=', '+d.cancelled_bookings+' booking(s) cancelled';
+    alert(msg);
+    if(typeof draw==='function')draw();
+    loadBlocked();
+  }catch(e){alert('Block failed: '+(e.message||e))}
+}
+
+async function loadBlocked(){
+  var box=document.getElementById('blBox');
+  if(!box)return;
+  try{
+    var r=await fetch(A+'/blocked-days');
+    if(!r.ok){box.innerHTML='<div class="empty" style="color:var(--red)">Error '+r.status+'</div>';return}
+    var days=await r.json();
+    if(!days.length){box.innerHTML='<div class="empty">No blocked time</div>';return}
+    // Group consecutive fully-blocked days into ranges for a cleaner view
+    var h='';
+    days.forEach(function(day){
+      var full = (day.booked===0 && day.open_ct===0 && day.blocked===day.total);
+      var label = full ? 'Full day' : day.blocked+' of '+day.total+' slots';
+      var dt = day.date;
+      h+='<div style="padding:8px 12px;border-bottom:1px solid var(--cream2);display:flex;justify-content:space-between;align-items:center">';
+      h+='<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:.62rem;color:var(--brown)">'+dt+'</div>';
+      h+='<div style="font-size:.48rem;color:var(--brown3)">'+label+(day.reason?' &middot; '+day.reason:'')+'</div></div>';
+      h+='<button class="btn btn-o" style="font-size:.45rem;padding:2px 8px" onclick="unblockDay(\''+dt+'\')">Unblock</button>';
+      h+='</div>';
+    });
+    box.innerHTML=h;
+  }catch(e){
+    console.error('loadBlocked failed',e);
+    box.innerHTML='<div class="empty" style="color:var(--red)">Failed to load</div>';
+  }
+}
+
+async function unblockDay(dt){
+  if(!confirm('Unblock all slots on '+dt+'? Existing bookings are unaffected.'))return;
+  try{
+    await fetch(A+'/unblock-range',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({start_date:dt,end_date:dt})});
+    if(typeof draw==='function')draw();
+    loadBlocked();
+  }catch(e){alert('Failed: '+(e.message||e))}
+}
+
 // ═══ CLIENT TABLE ═══
 var allClientsData=[],clSort='name',clSortDir=1,allReviews=[];
 
@@ -1308,8 +1447,8 @@ async function checkUnread(){
 
 // ═══ INIT ═══
 document.getElementById('v'+vw[0].toUpperCase()+vw.slice(1)).classList.add('act');
-draw();refreshAll();checkUnread();
-setInterval(function(){loadNA();loadSMS();checkUnread()},30000);
+draw();refreshAll();checkUnread();loadBlocked();
+setInterval(function(){loadNA();loadSMS();checkUnread();loadBlocked()},30000);
 </script>
 </body>
 </html>

@@ -1041,6 +1041,91 @@ def a_unblock(sid):
     db.commit()
     return jsonify({'status': 'unblocked'})
 
+@app.route('/api/admin/block-range', methods=['POST'])
+@require_admin
+def a_block_range():
+    """Block open slots across a date range. Booked slots are left alone (soft block).
+    POST body: { start_date: 'YYYY-MM-DD', end_date: 'YYYY-MM-DD', reason?: str, force?: bool }
+    When force=true, booked slots are also cleared (the appointment is cancelled)."""
+    d = request.json or {}
+    start = (d.get('start_date') or '').strip()
+    end = (d.get('end_date') or start).strip()
+    reason = (d.get('reason') or 'Blocked').strip() or 'Blocked'
+    force = bool(d.get('force'))
+    if not start or not end: return jsonify({'error': 'start_date and end_date required'}), 400
+    if end < start: return jsonify({'error': 'end_date must be on or after start_date'}), 400
+    db = get_db()
+    # Make sure slots exist for the range so the block persists even if no one has viewed those days yet
+    biz = db.execute("SELECT * FROM businesses WHERE id=?", (g.biz_id,)).fetchone()
+    try:
+        d0 = datetime.strptime(start, '%Y-%m-%d')
+        d1 = datetime.strptime(end, '%Y-%m-%d')
+    except Exception:
+        return jsonify({'error': 'Invalid date format'}), 400
+    cur = d0
+    while cur <= d1:
+        ensure_slots(db, g.biz_id, cur.strftime('%Y-%m-%d'))
+        cur += timedelta(days=1)
+    # Count what's booked in the range before we do anything
+    booked_count = db.execute(
+        "SELECT COUNT(*) FROM slots WHERE biz_id=? AND date>=? AND date<=? AND client_id IS NOT NULL AND status='booked'",
+        (g.biz_id, start, end)).fetchone()[0]
+    if booked_count > 0 and not force:
+        return jsonify({'error': 'has_bookings', 'booked_count': booked_count,
+            'message': f'{booked_count} booked appointment(s) in this range. They will not be cancelled. Add force=true if you want to cancel them, or contact clients to reschedule first.'}), 409
+    if force and booked_count > 0:
+        # Cancel bookings: clear client refs and mark as blocked
+        db.execute("""UPDATE slots SET client_id=NULL, status='blocked', service=?, price=0
+            WHERE biz_id=? AND date>=? AND date<=?""",
+            (reason, g.biz_id, start, end))
+    else:
+        # Soft block: only block empty/open slots
+        db.execute("""UPDATE slots SET status='blocked', service=?
+            WHERE biz_id=? AND date>=? AND date<=? AND client_id IS NULL AND status!='booked'""",
+            (reason, g.biz_id, start, end))
+    db.commit()
+    blocked_count = db.execute(
+        "SELECT COUNT(*) FROM slots WHERE biz_id=? AND date>=? AND date<=? AND status='blocked'",
+        (g.biz_id, start, end)).fetchone()[0]
+    return jsonify({'status': 'blocked', 'blocked_count': blocked_count,
+        'cancelled_bookings': booked_count if force else 0})
+
+@app.route('/api/admin/unblock-range', methods=['POST'])
+@require_admin
+def a_unblock_range():
+    d = request.json or {}
+    start = (d.get('start_date') or '').strip()
+    end = (d.get('end_date') or start).strip()
+    if not start or not end: return jsonify({'error': 'start_date and end_date required'}), 400
+    db = get_db()
+    db.execute("""UPDATE slots SET status='open', service=NULL
+        WHERE biz_id=? AND date>=? AND date<=? AND status='blocked' AND client_id IS NULL""",
+        (g.biz_id, start, end))
+    db.commit()
+    return jsonify({'status': 'unblocked'})
+
+@app.route('/api/admin/blocked-days')
+@require_admin
+def a_blocked_days():
+    """Return upcoming dates that have any blocked slots, grouped by date.
+    Shows fully-blocked days, partial-block days, and the reason (first found)."""
+    db = get_db()
+    today = datetime.now().strftime('%Y-%m-%d')
+    rows = db.execute("""
+        SELECT date,
+            SUM(CASE WHEN status='blocked' THEN 1 ELSE 0 END) as blocked,
+            SUM(CASE WHEN status='open' THEN 1 ELSE 0 END) as open_ct,
+            SUM(CASE WHEN status='booked' THEN 1 ELSE 0 END) as booked,
+            COUNT(*) as total,
+            MIN(CASE WHEN status='blocked' THEN service END) as reason
+        FROM slots
+        WHERE biz_id=? AND date>=?
+        GROUP BY date
+        HAVING blocked > 0
+        ORDER BY date
+    """, (g.biz_id, today)).fetchall()
+    return jsonify([dict(r) for r in rows])
+
 
 # ═══════════════════════════════════════════════════
 # ADMIN API — Client list & detail
