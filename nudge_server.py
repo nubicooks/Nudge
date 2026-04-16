@@ -1012,7 +1012,19 @@ def a_seed():
 @app.route('/api/client/<token>/profile')
 @require_client
 def c_profile(token):
-    return jsonify({'name':g.client['name'],'phone':g.client['phone'],'email':g.client['email'],'business':g.biz['name'],'biz_phone':g.biz['phone']})
+    db = get_db()
+    today = datetime.now().strftime('%Y-%m-%d')
+    visits = db.execute("SELECT COUNT(*) FROM slots WHERE client_id=? AND status='booked' AND date<?", (g.client_id, today)).fetchone()[0]
+    # Session options based on visit count
+    session_opts = [{'duration': 45, 'label': 'Standard Session — 45 min', 'price': 75}]
+    if visits >= 3:
+        session_opts.append({'duration': 60, 'label': 'Extended Session — 60 min', 'price': 95})
+        session_opts.append({'duration': 90, 'label': 'Deep Session — 90 min', 'price': 130})
+    return jsonify({
+        'name': g.client['name'], 'phone': g.client['phone'], 'email': g.client['email'],
+        'business': g.biz['name'], 'biz_phone': g.biz['phone'],
+        'visits': visits, 'session_options': session_opts
+    })
 
 @app.route('/api/client/<token>/consent', methods=['POST'])
 @require_client
@@ -1088,16 +1100,24 @@ def c_nudge(token):
 def c_book(token):
     d = request.json; db = get_db(); biz = g.biz
     slot_id = d.get('slot_id')
+    session_type = d.get('session_type', 45)  # duration in minutes
     slot = db.execute("SELECT * FROM slots WHERE id=? AND biz_id=? AND client_id IS NULL AND status NOT IN ('blocked','held')",
         (slot_id, g.biz_id)).fetchone()
     if not slot: return jsonify({'error':'Slot not available'}), 400
-    price = biz['session_price']
+
+    # Validate session type based on visit count
+    today = datetime.now().strftime('%Y-%m-%d')
+    visits = db.execute("SELECT COUNT(*) FROM slots WHERE client_id=? AND status='booked' AND date<?", (g.client_id, today)).fetchone()[0]
+    pricing = {45: 75, 60: 95, 90: 130}
+    if session_type in (60, 90) and visits < 3:
+        return jsonify({'error': 'Extended sessions unlock after 3 completed sessions'}), 400
+    price = pricing.get(session_type, 75)
+    service = {45: 'Nothing Box — 45 min', 60: 'Nothing Box Extended — 60 min', 90: 'Nothing Box Deep — 90 min'}.get(session_type, 'Nothing Box Session')
     is_free = 'Try for Free' in (g.client.get('notes') or '')
 
     if USE_STRIPE and not is_free and price > 0:
-        # Hold slot while client pays
-        db.execute("UPDATE slots SET client_id=?,status='held',service='Nothing Box Session',price=? WHERE id=?",
-            (g.client_id, price, slot_id))
+        db.execute("UPDATE slots SET client_id=?,status='held',service=?,price=? WHERE id=?",
+            (g.client_id, service, price, slot_id))
         db.commit()
         inv_token = gen_token()
         try:
@@ -1108,7 +1128,7 @@ def c_book(token):
                         'currency': 'usd',
                         'unit_amount': int(price * 100),
                         'product_data': {
-                            'name': 'Nothing Box Session',
+                            'name': service,
                             'description': f"{slot['date']} at {slot['time']}",
                         },
                     },
@@ -1122,20 +1142,18 @@ def c_book(token):
             )
             return jsonify({'status': 'checkout', 'checkout_url': session.url})
         except Exception as e:
-            # Release hold on error
             db.execute("UPDATE slots SET client_id=NULL,status='open',service=NULL,price=0 WHERE id=?", (slot_id,))
             db.commit()
             return jsonify({'error': f'Payment setup failed: {e}'}), 500
     else:
-        # Free tier or no Stripe — book directly
-        db.execute("UPDATE slots SET client_id=?,service='Nothing Box Session',price=?,status='booked' WHERE id=?",
-            (g.client_id, price if not is_free else 0, slot_id))
+        db.execute("UPDATE slots SET client_id=?,service=?,price=?,status='booked' WHERE id=?",
+            (g.client_id, service, price if not is_free else 0, slot_id))
         inv_token = gen_token()
         db.execute("INSERT INTO invoices (biz_id,client_id,slot_id,amount,invoice_token,status) VALUES (?,?,?,?,?,?)",
             (g.biz_id, g.client_id, slot_id, price if not is_free else 0, inv_token, 'paid' if is_free else 'unpaid'))
         db.commit()
         if g.client.get('phone'):
-            send_sms(g.client['phone'], f"Hi {g.client['name'].split()[0]}! Confirmed: {slot['time']} on {slot['date']} at {biz['name']}.", biz_id=g.biz_id)
+            send_sms(g.client['phone'], f"Hi {g.client['name'].split()[0]}! Confirmed: {service} at {slot['time']} on {slot['date']}.", biz_id=g.biz_id)
         return jsonify({'status':'booked','slot_id':slot_id})
 
 @app.route('/api/client/<token>/nudge/<int:nid>/respond', methods=['POST'])

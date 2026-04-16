@@ -150,11 +150,12 @@ footer{text-align:center;padding:16px;font-size:.45rem;color:var(--brown3)}foote
 <script>
 var TOKEN=window.location.pathname.split('/me/')[1]||'';
 var API='/api/client/'+TOKEN;
-var PROF={},MY_APTS=[],cv='month',calDt=new Date(),selDt=new Date(),selSlot=null,selAction=null,selFee=0,PRICE=75;
+var PROF={},MY_APTS=[],cv='month',calDt=new Date(),selDt=new Date(),selSlot=null,selAction=null,selFee=0,PRICE=75,SESSION_OPTS=[];
 
 async function init(){
   if(!TOKEN){document.querySelector('.container').innerHTML='<div class="empty" style="padding:60px">Invalid link.</div>';return}
   try{var r=await fetch(API+'/profile');if(!r.ok)throw 0;PROF=await r.json();
+    SESSION_OPTS=PROF.session_options||[{duration:45,label:'Standard Session — 45 min',price:75}];
     document.getElementById('wName').textContent='Hello, '+PROF.name.split(' ')[0];
     document.title='Nudge \u2014 '+PROF.name.split(' ')[0];
     await loadApts();await loadNudges();await loadMessages();
@@ -317,56 +318,74 @@ async function drawDay(){
 }
 
 async function loadDaySlots(date){
-  var ds=fd(date);selSlot=null;selAction=null;mySwapSlot=null;
+  var ds=fd(date);selSlot=null;selAction=null;mySwapSlot=null;selSlotPrice=PRICE;
   var ap=document.getElementById('actPanel');if(ap)ap.innerHTML='';
   try{var r=await fetch(API+'/available/'+ds);var slots=await r.json();
+  window._slotPrices={};
   var el=document.getElementById('daySlots');if(!el)return;
   var h='';slots.forEach(function(s){
-    if(s.is_yours){h+='<div class="cs yours" onclick="pickMySlot('+s.id+',\''+esc(s.time)+'\',this)" style="cursor:pointer">'+s.time+' ★</div>'}
+    var sp=s.price||PRICE;
+    window._slotPrices[s.id]=sp;
+    if(s.is_yours){h+='<div class="cs yours" onclick="pickMySlot('+s.id+',\''+esc(s.time)+'\','+sp+',this)" style="cursor:pointer">'+s.time+' \u2605</div>'}
     else if(s.status==='blocked'){h+='<div class="cs blocked">'+s.time+'</div>'}
-    else if(s.label==='Booked'){h+='<div class="cs taken" onclick="pickSlot('+s.id+',\'nudge\',\''+esc(s.time)+'\',this)">'+s.time+'</div>'}
-    else{h+='<div class="cs avail" onclick="pickSlot('+s.id+',\'book\',\''+esc(s.time)+'\',this)">'+s.time+'</div>'}
+    else if(s.label==='Booked'){h+='<div class="cs taken" onclick="pickSlot('+s.id+',\'nudge\',\''+esc(s.time)+'\','+sp+',this)">'+s.time+'</div>'}
+    else{h+='<div class="cs avail" onclick="pickSlot('+s.id+',\'book\',\''+esc(s.time)+'\','+sp+',this)">'+s.time+'</div>'}
   });el.innerHTML=h}catch(e){}
 }
 
-var mySwapSlot=null,mySwapTime='';
+var mySwapSlot=null,mySwapTime='',mySwapPrice=0,selSlotPrice=0;
 
-function pickMySlot(id,time,el){
-  mySwapSlot=id;mySwapTime=time;selSlot=null;selAction='swap-down';
+function pickMySlot(id,time,price,el){
+  mySwapSlot=id;mySwapTime=time;mySwapPrice=price||PRICE;selSlot=null;selAction='swap-down';
   document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')});
   if(el)el.classList.add('sel');
   var ap=document.getElementById('actPanel');
-  ap.innerHTML='<div class="act-panel"><h4>Swap your '+time+' slot</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:6px">Now tap the slot you\'d rather have. You\'ll offer a fee to swap.</div><div style="font-size:.5rem;color:var(--brown3)">Or cancel: <span style="color:var(--red);cursor:pointer;text-decoration:underline" onclick="cancelSwap()">never mind</span></div></div>';
+  ap.innerHTML='<div class="act-panel"><h4>Swap your '+time+' slot'+(mySwapPrice?' <span style="font-family:IBM Plex Mono;color:var(--green);font-size:.6rem">$'+mySwapPrice+'</span>':'')+'</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:6px">Now tap the slot you\'d rather have. You\'ll offer a fee to swap.</div><div style="font-size:.5rem;color:var(--brown3)">Or cancel: <span style="color:var(--red);cursor:pointer;text-decoration:underline" onclick="cancelSwap()">never mind</span></div></div>';
 }
 
-function cancelSwap(){mySwapSlot=null;mySwapTime='';selAction=null;var ap=document.getElementById('actPanel');if(ap)ap.innerHTML='';document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')})}
+function cancelSwap(){mySwapSlot=null;mySwapTime='';mySwapPrice=0;selAction=null;var ap=document.getElementById('actPanel');if(ap)ap.innerHTML='';document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')})}
 
-function pickSlot(id,action,time,el){
-  selSlot=id;selFee=PRICE*0.2;
+function pickSlot(id,action,time,price,el){
+  selSlot=id;selSlotPrice=price||PRICE;selFee=selSlotPrice*0.2;
   document.querySelectorAll('.cs').forEach(function(s){s.classList.remove('sel')});
   if(el)el.classList.add('sel');
-  // If we're in swap-down mode, keep our slot highlighted too
   if(mySwapSlot){
     selAction='swap-down';
-    var pcts=[10,15,20,25,30,50];var opts='';pcts.forEach(function(p){opts+='<div class="oo'+(p===20?' act':'')+'" onclick="pickFee('+p+',this)">'+p+'%&middot;$'+(PRICE*p/100).toFixed(0)+'</div>'});
+    var base=selSlotPrice;
+    var pcts=[10,15,20,25,30,50];var opts='';pcts.forEach(function(p){opts+='<div class="oo'+(p===20?' act':'')+'" onclick="pickFee('+p+',this)">'+p+'%\u00b7$'+(base*p/100).toFixed(0)+'</div>'});
+    var priceInfo='';
+    if(mySwapPrice!==selSlotPrice)priceInfo='<div style="font-size:.48rem;color:var(--brown3);margin-bottom:4px">Your slot: $'+mySwapPrice+' \u2192 Their slot: $'+selSlotPrice+'</div>';
     var ap=document.getElementById('actPanel');
-    ap.innerHTML='<div class="act-panel"><h4>Swap: your '+mySwapTime+' &rarr; '+time+'</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">You\'ll pay them to take your slot and give you theirs.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">2 offers max &middot; 30 min to respond</div></div><button class="btn btn-r" onclick="doNudge()">Send Swap Offer</button><div style="margin-top:6px;font-size:.45rem;color:var(--brown3);text-align:center;cursor:pointer" onclick="cancelSwap()">Cancel</div></div>';
+    ap.innerHTML='<div class="act-panel"><h4>Swap: your '+mySwapTime+' \u2192 '+time+'</h4>'+priceInfo+'<div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">Offer a fee to swap.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">Fee based on $'+base+' slot \u00b7 2 offers max \u00b7 30 min</div></div><button class="btn btn-r" onclick="doNudge()">Send Swap Offer</button><div style="margin-top:6px;font-size:.45rem;color:var(--brown3);text-align:center;cursor:pointer" onclick="cancelSwap()">Cancel</div></div>';
   }else{
     selAction=action;
     var ap=document.getElementById('actPanel');
     if(action==='book'){
-      ap.innerHTML='<div class="act-panel"><h4>Book '+time+'</h4><div style="font-size:.6rem;color:var(--brown2);margin-bottom:6px">This slot is open. Tap to book it.</div><button class="btn btn-g" onclick="doBook()">Book '+time+'</button></div>';
+      var sessHtml='';
+      if(SESSION_OPTS.length>1){
+        sessHtml='<div style="margin-bottom:8px"><label style="font-size:.5rem;color:var(--brown3);font-weight:600;letter-spacing:.5px;display:block;margin-bottom:4px">SESSION TYPE</label><select id="sessType" style="width:100%;padding:8px 10px;border:1.5px solid var(--cream3);border-radius:6px;font-family:Libre Franklin;font-size:.65rem;background:var(--white)">';
+        SESSION_OPTS.forEach(function(o){sessHtml+='<option value="'+o.duration+'">'+o.label+' — $'+o.price+'</option>'});
+        sessHtml+='</select></div>';
+      }
+      var visits=PROF.visits||0;
+      var badge=visits>=3?'<div style="font-size:.45rem;color:var(--green);margin-bottom:6px">&#9733; Loyalty unlocked — extended sessions available</div>':'<div style="font-size:.45rem;color:var(--brown3);margin-bottom:6px">'+visits+'/3 sessions completed'+(visits<3?' — extended sessions unlock at 3':'')+'</div>';
+      ap.innerHTML='<div class="act-panel"><h4>Book '+time+'</h4>'+badge+sessHtml+'<button class="btn btn-g" onclick="doBook()">Book '+time+'</button></div>';
     }else{
-      var pcts=[10,15,20,25,30,50];var opts='';pcts.forEach(function(p){opts+='<div class="oo'+(p===20?' act':'')+'" onclick="pickFee('+p+',this)">'+p+'%&middot;$'+(PRICE*p/100).toFixed(0)+'</div>'});
-      ap.innerHTML='<div class="act-panel"><h4>Nudge for '+time+'</h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">This slot is taken. Make an offer.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">2 offers max &middot; 30 min to respond</div></div><button class="btn btn-r" onclick="doNudge()">Send Nudge</button></div>';
+      var base=selSlotPrice;
+      var pcts=[10,15,20,25,30,50];var opts='';pcts.forEach(function(p){opts+='<div class="oo'+(p===20?' act':'')+'" onclick="pickFee('+p+',this)">'+p+'%\u00b7$'+(base*p/100).toFixed(0)+'</div>'});
+      ap.innerHTML='<div class="act-panel"><h4>Nudge for '+time+' <span style="font-family:IBM Plex Mono;color:var(--green);font-size:.6rem">$'+base+'</span></h4><div style="font-size:.55rem;color:var(--brown2);margin-bottom:4px">This slot is taken. Make an offer.</div><div class="offer-opts">'+opts+'</div><div class="fee-prev"><div class="big" id="feeAmt">$'+selFee.toFixed(2)+'</div><div class="sub">Fee based on $'+base+' slot \u00b7 2 offers max \u00b7 30 min</div></div><button class="btn btn-r" onclick="doNudge()">Send Nudge</button></div>';
     }
   }
 }
 
-function pickFee(p,el){selFee=PRICE*p/100;document.querySelectorAll('.oo').forEach(function(o){o.classList.remove('act')});el.classList.add('act');var fa=document.getElementById('feeAmt');if(fa)fa.textContent='$'+selFee.toFixed(2)}
+function pickFee(p,el){selFee=selSlotPrice*p/100;document.querySelectorAll('.oo').forEach(function(o){o.classList.remove('act')});el.classList.add('act');var fa=document.getElementById('feeAmt');if(fa)fa.textContent='$'+selFee.toFixed(2)}
+
+
 
 async function doBook(){
-  var r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slot_id:selSlot})});
+  var st=document.getElementById('sessType');
+  var session_type=st?parseInt(st.value):45;
+  var r=await fetch(API+'/book',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slot_id:selSlot,session_type:session_type})});
   var d=await r.json();if(d.error){alert(d.error);return}
   if(d.status==='checkout'&&d.checkout_url){window.location.href=d.checkout_url;return}
   location.reload();
