@@ -1044,49 +1044,63 @@ def a_unblock(sid):
 @app.route('/api/admin/block-range', methods=['POST'])
 @require_admin
 def a_block_range():
-    """Block open slots across a date range. Booked slots are left alone (soft block).
-    POST body: { start_date: 'YYYY-MM-DD', end_date: 'YYYY-MM-DD', reason?: str, force?: bool }
-    When force=true, booked slots are also cleared (the appointment is cancelled)."""
+    """Block open slots across a date range, optionally filtered by time-of-day.
+    POST body: {
+      start_date: 'YYYY-MM-DD', end_date: 'YYYY-MM-DD',
+      start_time?: 'HH:MM' (inclusive lower bound), end_time?: 'HH:MM' (exclusive upper bound),
+      reason?: str, force?: bool
+    }
+    If start_time/end_time are provided, only slots whose time falls in [start_time, end_time) are blocked.
+    If omitted, the whole day is blocked (existing behavior).
+    When force=true, booked slots in scope are also cleared."""
     d = request.json or {}
     start = (d.get('start_date') or '').strip()
     end = (d.get('end_date') or start).strip()
     reason = (d.get('reason') or 'Blocked').strip() or 'Blocked'
     force = bool(d.get('force'))
+    start_time = (d.get('start_time') or '').strip() or None
+    end_time = (d.get('end_time') or '').strip() or None
     if not start or not end: return jsonify({'error': 'start_date and end_date required'}), 400
     if end < start: return jsonify({'error': 'end_date must be on or after start_date'}), 400
+    if (start_time and not end_time) or (end_time and not start_time):
+        return jsonify({'error': 'start_time and end_time must both be provided, or both omitted'}), 400
+    if start_time and end_time and end_time <= start_time:
+        return jsonify({'error': 'end_time must be after start_time'}), 400
     db = get_db()
-    # Make sure slots exist for the range so the block persists even if no one has viewed those days yet
-    biz = db.execute("SELECT * FROM businesses WHERE id=?", (g.biz_id,)).fetchone()
     try:
         d0 = datetime.strptime(start, '%Y-%m-%d')
         d1 = datetime.strptime(end, '%Y-%m-%d')
     except Exception:
         return jsonify({'error': 'Invalid date format'}), 400
+    # Ensure slots exist for the range
     cur = d0
     while cur <= d1:
         ensure_slots(db, g.biz_id, cur.strftime('%Y-%m-%d'))
         cur += timedelta(days=1)
-    # Count what's booked in the range before we do anything
-    booked_count = db.execute(
-        "SELECT COUNT(*) FROM slots WHERE biz_id=? AND date>=? AND date<=? AND client_id IS NOT NULL AND status='booked'",
-        (g.biz_id, start, end)).fetchone()[0]
+    # Build the time filter fragment
+    time_filter = ''
+    time_params = []
+    if start_time and end_time:
+        time_filter = ' AND time>=? AND time<?'
+        time_params = [start_time, end_time]
+    # Count what's booked in scope (date range + optional time window)
+    booked_sql = f"SELECT COUNT(*) FROM slots WHERE biz_id=? AND date>=? AND date<=?{time_filter} AND client_id IS NOT NULL AND status='booked'"
+    booked_count = db.execute(booked_sql, [g.biz_id, start, end] + time_params).fetchone()[0]
     if booked_count > 0 and not force:
+        scope = f"{start}" + (f" to {end}" if end != start else "")
+        if start_time and end_time:
+            scope += f" ({start_time}–{end_time})"
         return jsonify({'error': 'has_bookings', 'booked_count': booked_count,
-            'message': f'{booked_count} booked appointment(s) in this range. They will not be cancelled. Add force=true if you want to cancel them, or contact clients to reschedule first.'}), 409
+            'message': f'{booked_count} booked appointment(s) in {scope}. They will not be cancelled. Add force=true to cancel them, or contact clients to reschedule first.'}), 409
     if force and booked_count > 0:
-        # Cancel bookings: clear client refs and mark as blocked
-        db.execute("""UPDATE slots SET client_id=NULL, status='blocked', service=?, price=0
-            WHERE biz_id=? AND date>=? AND date<=?""",
-            (reason, g.biz_id, start, end))
+        upd = f"UPDATE slots SET client_id=NULL, status='blocked', service=?, price=0 WHERE biz_id=? AND date>=? AND date<=?{time_filter}"
+        db.execute(upd, [reason, g.biz_id, start, end] + time_params)
     else:
-        # Soft block: only block empty/open slots
-        db.execute("""UPDATE slots SET status='blocked', service=?
-            WHERE biz_id=? AND date>=? AND date<=? AND client_id IS NULL AND status!='booked'""",
-            (reason, g.biz_id, start, end))
+        upd = f"UPDATE slots SET status='blocked', service=? WHERE biz_id=? AND date>=? AND date<=?{time_filter} AND client_id IS NULL AND status!='booked'"
+        db.execute(upd, [reason, g.biz_id, start, end] + time_params)
     db.commit()
-    blocked_count = db.execute(
-        "SELECT COUNT(*) FROM slots WHERE biz_id=? AND date>=? AND date<=? AND status='blocked'",
-        (g.biz_id, start, end)).fetchone()[0]
+    count_sql = f"SELECT COUNT(*) FROM slots WHERE biz_id=? AND date>=? AND date<=?{time_filter} AND status='blocked'"
+    blocked_count = db.execute(count_sql, [g.biz_id, start, end] + time_params).fetchone()[0]
     return jsonify({'status': 'blocked', 'blocked_count': blocked_count,
         'cancelled_bookings': booked_count if force else 0})
 
@@ -1096,11 +1110,17 @@ def a_unblock_range():
     d = request.json or {}
     start = (d.get('start_date') or '').strip()
     end = (d.get('end_date') or start).strip()
+    start_time = (d.get('start_time') or '').strip() or None
+    end_time = (d.get('end_time') or '').strip() or None
     if not start or not end: return jsonify({'error': 'start_date and end_date required'}), 400
     db = get_db()
-    db.execute("""UPDATE slots SET status='open', service=NULL
-        WHERE biz_id=? AND date>=? AND date<=? AND status='blocked' AND client_id IS NULL""",
-        (g.biz_id, start, end))
+    time_filter = ''
+    time_params = []
+    if start_time and end_time:
+        time_filter = ' AND time>=? AND time<?'
+        time_params = [start_time, end_time]
+    upd = f"UPDATE slots SET status='open', service=NULL WHERE biz_id=? AND date>=? AND date<=?{time_filter} AND status='blocked' AND client_id IS NULL"
+    db.execute(upd, [g.biz_id, start, end] + time_params)
     db.commit()
     return jsonify({'status': 'unblocked'})
 

@@ -36,15 +36,20 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 .dow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:.48rem;font-weight:600;color:var(--brown3);padding:4px 8px;letter-spacing:.5px}
 .mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:0 8px 8px}
-.mday{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;font-size:.7rem;font-weight:500;cursor:pointer;transition:background .1s}
+.mday{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;font-size:.7rem;font-weight:500;cursor:pointer;transition:background .1s;position:relative}
+.bkWhen.sel,.bkPart.sel{background:var(--red);color:#fff;border-color:var(--red)}
 .mday:hover{background:var(--cream)}
 .mday.other{opacity:.3}
 .mday.other:hover{opacity:.6}
 .mday.today{background:rgba(204,0,0,.06);font-weight:700;color:var(--red)}
 .mday.sel{background:var(--red);color:#fff}
-.mdots{display:flex;gap:3px;margin-top:3px}
-.mdot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 0 .5px rgba(26,122,46,.3)}
-.mdot.blk{background:var(--brown3);box-shadow:none}
+.mdots{position:absolute;top:4px;right:4px;display:flex;gap:3px;flex-direction:row-reverse;pointer-events:none}
+.mpill{background:var(--red);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:.48rem;font-weight:700;padding:1px 5px;border-radius:8px;line-height:1.35;letter-spacing:.3px;min-width:14px;text-align:center}
+.mpill.blk{background:transparent;color:var(--brown3);border:1px solid var(--brown3);padding:0 4px}
+.mday.today .mpill{background:#fff;color:var(--red)}
+.mday.today .mpill.blk{background:transparent;color:#fff;border-color:#fff}
+.mday.sel .mpill{background:#fff;color:var(--red)}
+.mday.sel .mpill.blk{background:transparent;color:#fff;border-color:#fff}
 
 .wgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:8px}
 .wcol-h{text-align:center;font-size:.5rem;font-weight:600;color:var(--brown3);padding:4px 0;border-bottom:1px solid var(--cream2);margin-bottom:3px}
@@ -267,7 +272,7 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 
 <div class="mbg" id="mResched"><div class="mdl"><h3 style="color:var(--blue)">Reschedule</h3><p id="rsInfo" style="font-size:.7rem;color:var(--brown2);margin-bottom:10px"></p><label>New Date</label><input id="rsDate" type="date"><label>New Time</label><select id="rsSlot"></select><label>Note to Client</label><textarea id="rsNote" placeholder="Optional note"></textarea><div class="mdl-a"><button class="btn btn-o" onclick="cm('mResched')">Back</button><button class="btn btn-blue" onclick="doResched()">Reschedule</button></div></div></div>
 
-<div class="mbg" id="mBlock"><div class="mdl"><h3>Block Time Off</h3><p style="font-size:.7rem;color:var(--brown2);margin-bottom:10px" id="blInfo"></p><label>Reason</label><input id="blReason" placeholder="Lunch, Personal, Day off..."><div class="mdl-a"><button class="btn btn-o" onclick="cm('mBlock')">Cancel</button><button class="btn btn-gray" onclick="doBlock()">Block Slot</button></div></div></div>
+<div class="mbg" id="mBlockOne"><div class="mdl"><h3>Block Slot</h3><p style="font-size:.7rem;color:var(--brown2);margin-bottom:10px" id="blInfo"></p><label>Reason</label><input id="blReason" placeholder="Lunch, Personal, Day off..."><div class="mdl-a"><button class="btn btn-o" onclick="cm('mBlockOne')">Cancel</button><button class="btn btn-gray" onclick="doBlockOne()">Block Slot</button></div></div></div>
 
 <div class="mbg" id="mClient"><div class="mdl"><h3 id="cdName"></h3><div id="cdBody"></div><div class="mdl-a"><button class="btn btn-o" onclick="cm('mClient')">Close</button><button class="btn btn-g" onclick="cm('mClient');var n=document.getElementById('cdName').textContent;var cid=parseInt(document.getElementById('cdBody').dataset.cid||0);if(cid){showTab('inbox');setTimeout(function(){openChat(cid,n)},200)}">Message</button></div></div></div>
 
@@ -452,30 +457,68 @@ header{background:var(--red);padding:0 28px;height:58px;display:flex;align-items
 </div></div>
 
 <!-- BLOCK TIME MODAL -->
-<div class="mbg" id="mBlock"><div class="mdl" style="max-width:500px">
+<div class="mbg" id="mBlock"><div class="mdl" style="max-width:520px">
   <h3>Block Time</h3>
-  <div style="font-size:.55rem;color:var(--brown3);margin-top:-8px;margin-bottom:12px">Prevent clients from booking in a date range.</div>
+  <div style="font-size:.55rem;color:var(--brown3);margin-top:-8px;margin-bottom:14px">Prevent clients from booking during a time range.</div>
 
-  <div style="display:flex;gap:6px;margin-bottom:12px">
-    <button class="btn btn-o" id="bkModeSingle" onclick="bkMode('single')" style="flex:1;font-size:.6rem">Single Day</button>
-    <button class="btn btn-o" id="bkModeRange" onclick="bkMode('range')" style="flex:1;font-size:.6rem">Date Range</button>
+  <!-- WHEN -->
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:.52rem;letter-spacing:3px;color:var(--brown3);text-transform:uppercase;margin-bottom:8px">When</div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn btn-o bkWhen" data-when="today" onclick="bkWhen('today')" style="font-size:.55rem;padding:5px 10px">Today</button>
+    <button class="btn btn-o bkWhen" data-when="tomorrow" onclick="bkWhen('tomorrow')" style="font-size:.55rem;padding:5px 10px">Tomorrow</button>
+    <button class="btn btn-o bkWhen" data-when="week" onclick="bkWhen('week')" style="font-size:.55rem;padding:5px 10px">This week</button>
+    <button class="btn btn-o bkWhen" data-when="month" onclick="bkWhen('month')" style="font-size:.55rem;padding:5px 10px">This month</button>
+    <button class="btn btn-o bkWhen" data-when="days" onclick="bkWhen('days')" style="font-size:.55rem;padding:5px 10px">N days</button>
+    <button class="btn btn-o bkWhen" data-when="range" onclick="bkWhen('range')" style="font-size:.55rem;padding:5px 10px">Custom range</button>
   </div>
 
-  <div id="bkFieldsSingle">
+  <div id="bkFieldsSingle" style="display:none">
     <label>Date</label>
     <input id="bkDate" type="date">
   </div>
 
+  <div id="bkFieldsDays" style="display:none">
+    <label>Number of days starting today</label>
+    <input id="bkDays" type="number" min="1" max="365" value="7">
+  </div>
+
   <div id="bkFieldsRange" style="display:none">
     <div class="row2">
-      <div><label>Start Date</label><input id="bkStart" type="date"></div>
-      <div><label>End Date</label><input id="bkEnd" type="date"></div>
+      <div><label>Start date</label><input id="bkStart" type="date"></div>
+      <div><label>End date</label><input id="bkEnd" type="date"></div>
     </div>
   </div>
 
+  <div id="bkFieldsAuto" style="display:none;padding:8px 10px;background:var(--cream);border-radius:6px;margin-bottom:8px;font-size:.6rem;color:var(--brown2);font-family:'IBM Plex Mono',monospace;letter-spacing:.5px">
+    <span id="bkAutoText">—</span>
+  </div>
+
+  <!-- WHAT PART OF THE DAY -->
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:.52rem;letter-spacing:3px;color:var(--brown3);text-transform:uppercase;margin:16px 0 8px">What part of the day</div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn btn-o bkPart" data-part="all" onclick="bkPart('all')" style="font-size:.55rem;padding:5px 10px">All day</button>
+    <button class="btn btn-o bkPart" data-part="morning" onclick="bkPart('morning')" style="font-size:.55rem;padding:5px 10px">Morning</button>
+    <button class="btn btn-o bkPart" data-part="afternoon" onclick="bkPart('afternoon')" style="font-size:.55rem;padding:5px 10px">Afternoon</button>
+    <button class="btn btn-o bkPart" data-part="evening" onclick="bkPart('evening')" style="font-size:.55rem;padding:5px 10px">Evening</button>
+    <button class="btn btn-o bkPart" data-part="custom" onclick="bkPart('custom')" style="font-size:.55rem;padding:5px 10px">Custom hours</button>
+  </div>
+
+  <div id="bkFieldsCustom" style="display:none">
+    <div class="row2">
+      <div><label>From (24h)</label><input id="bkTimeStart" type="time"></div>
+      <div><label>To (24h)</label><input id="bkTimeEnd" type="time"></div>
+    </div>
+  </div>
+
+  <div id="bkPartAuto" style="padding:6px 10px;background:var(--cream);border-radius:6px;margin-bottom:12px;font-size:.58rem;color:var(--brown2);font-family:'IBM Plex Mono',monospace;letter-spacing:.5px">
+    <span id="bkPartText">Whole day</span>
+  </div>
+
+  <!-- REASON -->
   <label>Reason (shows on calendar)</label>
   <input id="bkReason" placeholder="Personal day" value="Blocked">
 
+  <!-- WARNING -->
   <div id="bkWarn" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(230,165,90,.1);border:1px solid var(--gold);border-radius:6px">
     <div style="font-weight:700;font-size:.65rem;color:var(--gold);margin-bottom:4px">Existing bookings in this range</div>
     <div id="bkWarnText" style="font-size:.6rem;color:var(--brown2);line-height:1.5"></div>
@@ -591,7 +634,7 @@ async function loadDots(){
   var y=cur.getFullYear(),m=cur.getMonth();
   for(var d=1;d<=new Date(y,m+1,0).getDate();d++){
     var dt=new Date(y,m,d);
-    try{var r=await fetch(A+'/slots/'+fd(dt));var sl=await r.json();var bk=sl.filter(function(s){return s.client_id});var bl=sl.filter(function(s){return s.status==='blocked'});var el=document.getElementById('dot-'+fd(dt));if(el){var dots='';for(var i=0;i<Math.min(bk.length,3);i++)dots+='<div class="mdot"></div>';for(var j=0;j<Math.min(bl.length,1);j++)dots+='<div class="mdot blk"></div>';el.innerHTML=dots}}catch(e){}
+    try{var r=await fetch(A+'/slots/'+fd(dt));var sl=await r.json();var bk=sl.filter(function(s){return s.client_id});var bl=sl.filter(function(s){return s.status==='blocked'});var el=document.getElementById('dot-'+fd(dt));if(el){var pills='';if(bk.length>0)pills+='<span class="mpill">'+bk.length+'</span>';if(bl.length>0)pills+='<span class="mpill blk">'+bl.length+'</span>';el.innerHTML=pills}}catch(e){}
   }
 }
 
@@ -621,7 +664,7 @@ async function loadDay(date){
     }else if(s.status==='blocked'){
       h+='<div class="dsl bl"><div class="dt">'+s.time+'</div><div><div class="dn" style="color:var(--brown3);font-style:italic">Blocked</div><div class="dm">'+(s.service||'Time off')+'</div></div><div><button class="btn btn-gray" style="font-size:.48rem" onclick="doUnblock('+s.id+')">Unblock</button></div></div>'
     }else{
-      h+='<div class="dsl op"><div class="dt">'+s.time+'</div><div><div class="dn" style="color:var(--brown3);font-weight:300">Available</div></div><div style="display:flex;gap:3px"><button class="btn btn-o" style="font-size:.48rem;padding:3px 7px" onclick="openBookAt('+s.id+',\''+ds+'\')">Book</button><button class="btn btn-gray" style="font-size:.48rem;padding:3px 7px" onclick="openBlock('+s.id+',\''+s.time+'\')">Block</button></div></div>'
+      h+='<div class="dsl op"><div class="dt">'+s.time+'</div><div><div class="dn" style="color:var(--brown3);font-weight:300">Available</div></div><div style="display:flex;gap:3px"><button class="btn btn-o" style="font-size:.48rem;padding:3px 7px" onclick="openBookAt('+s.id+',\''+ds+'\')">Book</button><button class="btn btn-gray" style="font-size:.48rem;padding:3px 7px" onclick="openBlockOne('+s.id+',\''+s.time+'\')">Block</button></div></div>'
     }
   });
   h+='</div>';el.innerHTML=h
@@ -647,8 +690,8 @@ async function doResched(){var nid=parseInt(document.getElementById('rsSlot').va
 
 // ═══ BLOCK ═══
 var blockId=0;
-function openBlock(sid,time){blockId=sid;document.getElementById('blInfo').textContent='Block '+time+'?';document.getElementById('blReason').value='';document.getElementById('mBlock').classList.add('show')}
-async function doBlock(){await fetch(A+'/block/'+blockId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:document.getElementById('blReason').value.trim()||'Blocked'})});cm('mBlock');draw()}
+function openBlockOne(sid,time){blockId=sid;document.getElementById('blInfo').textContent='Block '+time+'?';document.getElementById('blReason').value='';document.getElementById('mBlockOne').classList.add('show')}
+async function doBlockOne(){await fetch(A+'/block/'+blockId,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:document.getElementById('blReason').value.trim()||'Blocked'})});cm('mBlockOne');draw()}
 async function doUnblock(sid){await fetch(A+'/unblock/'+sid,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});draw()}
 
 // ═══ AGENDA ═══
@@ -964,63 +1007,172 @@ function rpPreview(){
 }
 
 // ═══ BLOCK TIME ═══
-var bkCurMode='single';
+var bkState = { when:'today', part:'all', startHour:9, endHour:18 };
 
 function openBlock(){
-  bkMode('single');
-  // Pre-fill with today
-  var td=new Date().toISOString().slice(0,10);
-  document.getElementById('bkDate').value=td;
-  document.getElementById('bkStart').value=td;
-  document.getElementById('bkEnd').value=td;
-  document.getElementById('bkReason').value='Blocked';
-  document.getElementById('bkForce').checked=false;
-  document.getElementById('bkWarn').style.display='none';
-  document.getElementById('mBlock').classList.add('show');
+  // Pull current schedule from settings so morning/afternoon/evening snap to it
+  fetch(A+'/settings').then(function(r){return r.ok?r.json():null}).then(function(s){
+    if(s){
+      bkState.startHour = (s.start_hour!=null?s.start_hour:9);
+      bkState.endHour = (s.end_hour!=null?s.end_hour:18);
+    }
+    bkWhen('today');
+    bkPart('all');
+    document.getElementById('bkReason').value='Blocked';
+    document.getElementById('bkForce').checked=false;
+    document.getElementById('bkWarn').style.display='none';
+    document.getElementById('mBlock').classList.add('show');
+  }).catch(function(){
+    bkWhen('today');
+    bkPart('all');
+    document.getElementById('mBlock').classList.add('show');
+  });
 }
 
-function bkMode(m){
-  bkCurMode=m;
-  document.getElementById('bkFieldsSingle').style.display=m==='single'?'block':'none';
-  document.getElementById('bkFieldsRange').style.display=m==='range'?'block':'none';
-  document.getElementById('bkModeSingle').style.background=m==='single'?'var(--red)':'var(--white)';
-  document.getElementById('bkModeSingle').style.color=m==='single'?'#fff':'var(--brown)';
-  document.getElementById('bkModeRange').style.background=m==='range'?'var(--red)':'var(--white)';
-  document.getElementById('bkModeRange').style.color=m==='range'?'#fff':'var(--brown)';
+function bkWhen(mode){
+  bkState.when = mode;
+  // Toggle visual selection
+  document.querySelectorAll('.bkWhen').forEach(function(b){
+    b.classList.toggle('sel', b.dataset.when===mode);
+  });
+  // Show/hide field panels
+  var fSingle = document.getElementById('bkFieldsSingle');
+  var fDays = document.getElementById('bkFieldsDays');
+  var fRange = document.getElementById('bkFieldsRange');
+  var fAuto = document.getElementById('bkFieldsAuto');
+  fSingle.style.display = 'none';
+  fDays.style.display = 'none';
+  fRange.style.display = 'none';
+  fAuto.style.display = 'none';
+
+  var today = new Date();
+  var td = toISO(today);
+
+  if(mode==='today'){
+    fAuto.style.display='block';
+    document.getElementById('bkAutoText').textContent = td;
+  } else if(mode==='tomorrow'){
+    fAuto.style.display='block';
+    var tm = new Date(today); tm.setDate(tm.getDate()+1);
+    document.getElementById('bkAutoText').textContent = toISO(tm);
+  } else if(mode==='week'){
+    fAuto.style.display='block';
+    // "This week" = today through upcoming Sunday
+    var end = new Date(today);
+    var daysToSunday = (7 - end.getDay()) % 7;
+    if(daysToSunday===0) daysToSunday = 7 - today.getDay(); // if today is Sunday, still 7 day span? use today→Sunday(+7)
+    // simpler: today through 6 days from now
+    end.setDate(end.getDate()+6);
+    document.getElementById('bkAutoText').textContent = td+' → '+toISO(end);
+  } else if(mode==='month'){
+    fAuto.style.display='block';
+    var mEnd = new Date(today); mEnd.setDate(mEnd.getDate()+29);
+    document.getElementById('bkAutoText').textContent = td+' → '+toISO(mEnd)+' (30 days)';
+  } else if(mode==='days'){
+    fDays.style.display='block';
+    document.getElementById('bkDays').value = 7;
+  } else if(mode==='range'){
+    fRange.style.display='block';
+    document.getElementById('bkStart').value = td;
+    document.getElementById('bkEnd').value = td;
+  }
   document.getElementById('bkWarn').style.display='none';
+}
+
+function bkPart(part){
+  bkState.part = part;
+  document.querySelectorAll('.bkPart').forEach(function(b){
+    b.classList.toggle('sel', b.dataset.part===part);
+  });
+  var fCustom = document.getElementById('bkFieldsCustom');
+  fCustom.style.display = (part==='custom') ? 'block' : 'none';
+  var txt = document.getElementById('bkPartText');
+  if(part==='all'){ txt.textContent = 'Whole day'; }
+  else if(part==='morning'){ txt.textContent = pad(bkState.startHour)+':00 → 12:00'; }
+  else if(part==='afternoon'){ txt.textContent = '12:00 → 17:00'; }
+  else if(part==='evening'){ txt.textContent = '17:00 → '+pad(bkState.endHour)+':00'; }
+  else if(part==='custom'){
+    document.getElementById('bkTimeStart').value = pad(bkState.startHour)+':00';
+    document.getElementById('bkTimeEnd').value = pad(bkState.endHour)+':00';
+    txt.textContent = 'Pick a start and end time below';
+  }
+  document.getElementById('bkWarn').style.display='none';
+}
+
+function pad(n){ return (n<10?'0':'')+n; }
+function toISO(d){ return d.toISOString().slice(0,10); }
+
+function getBkDateRange(){
+  var today = new Date();
+  var td = toISO(today);
+  if(bkState.when==='today') return [td,td];
+  if(bkState.when==='tomorrow'){
+    var tm = new Date(today); tm.setDate(tm.getDate()+1); var s = toISO(tm);
+    return [s,s];
+  }
+  if(bkState.when==='week'){
+    var wEnd = new Date(today); wEnd.setDate(wEnd.getDate()+6);
+    return [td, toISO(wEnd)];
+  }
+  if(bkState.when==='month'){
+    var mEnd = new Date(today); mEnd.setDate(mEnd.getDate()+29);
+    return [td, toISO(mEnd)];
+  }
+  if(bkState.when==='days'){
+    var n = parseInt(document.getElementById('bkDays').value)||1;
+    if(n<1) n=1;
+    var dEnd = new Date(today); dEnd.setDate(dEnd.getDate()+(n-1));
+    return [td, toISO(dEnd)];
+  }
+  if(bkState.when==='range'){
+    return [document.getElementById('bkStart').value, document.getElementById('bkEnd').value];
+  }
+  return [td,td];
+}
+
+function getBkTimeWindow(){
+  if(bkState.part==='all') return [null,null];
+  if(bkState.part==='morning') return [pad(bkState.startHour)+':00','12:00'];
+  if(bkState.part==='afternoon') return ['12:00','17:00'];
+  if(bkState.part==='evening') return ['17:00',pad(bkState.endHour)+':00'];
+  if(bkState.part==='custom'){
+    return [document.getElementById('bkTimeStart').value, document.getElementById('bkTimeEnd').value];
+  }
+  return [null,null];
 }
 
 async function doBlock(){
-  var start, end;
-  if(bkCurMode==='single'){
-    start=document.getElementById('bkDate').value;
-    end=start;
-  }else{
-    start=document.getElementById('bkStart').value;
-    end=document.getElementById('bkEnd').value;
-  }
-  if(!start||!end){alert('Pick a date');return}
-  if(end<start){alert('End date must be on or after start date');return}
-  var reason=document.getElementById('bkReason').value.trim()||'Blocked';
-  var force=document.getElementById('bkForce').checked;
+  var range = getBkDateRange();
+  var start = range[0], end = range[1];
+  if(!start||!end){ alert('Pick a date'); return; }
+  if(end<start){ alert('End date must be on or after start date'); return; }
+  var tw = getBkTimeWindow();
+  var start_time = tw[0], end_time = tw[1];
+  if(bkState.part==='custom' && (!start_time || !end_time)){ alert('Pick a start and end time'); return; }
+  if(start_time && end_time && end_time <= start_time){ alert('End time must be after start time'); return; }
+  var reason = document.getElementById('bkReason').value.trim() || 'Blocked';
+  var force = document.getElementById('bkForce').checked;
+  var payload = { start_date:start, end_date:end, reason:reason, force:force };
+  if(start_time && end_time){ payload.start_time = start_time; payload.end_time = end_time; }
   try{
-    var r=await fetch(A+'/block-range',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({start_date:start,end_date:end,reason:reason,force:force})});
-    var d=await r.json();
-    if(r.status===409&&d.error==='has_bookings'){
-      // Show warning and let user confirm
-      document.getElementById('bkWarnText').textContent=d.message;
-      document.getElementById('bkWarn').style.display='block';
+    var r = await fetch(A+'/block-range', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    var d = await r.json();
+    if(r.status===409 && d.error==='has_bookings'){
+      document.getElementById('bkWarnText').textContent = d.message;
+      document.getElementById('bkWarn').style.display = 'block';
       return;
     }
-    if(d.error){alert(d.error);return}
+    if(d.error){ alert(d.error); return; }
     cm('mBlock');
-    var msg=d.blocked_count+' slot(s) blocked';
-    if(d.cancelled_bookings>0)msg+=', '+d.cancelled_bookings+' booking(s) cancelled';
+    var msg = d.blocked_count+' slot(s) blocked';
+    if(d.cancelled_bookings>0) msg += ', '+d.cancelled_bookings+' booking(s) cancelled';
     alert(msg);
-    if(typeof draw==='function')draw();
+    if(typeof draw==='function') draw();
     loadBlocked();
-  }catch(e){alert('Block failed: '+(e.message||e))}
+  }catch(e){ alert('Block failed: '+(e.message||e)); }
 }
 
 async function loadBlocked(){
