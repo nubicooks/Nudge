@@ -155,7 +155,7 @@ var PROF={},MY_APTS=[],cv='month',calDt=new Date(),selDt=new Date(),selSlot=null
 async function init(){
   if(!TOKEN){document.querySelector('.container').innerHTML='<div class="empty" style="padding:60px">Invalid link.</div>';return}
   try{var r=await fetch(API+'/profile');if(!r.ok)throw 0;PROF=await r.json();
-    SESSION_OPTS=PROF.session_options||[{duration:45,label:'Standard Session — 45 min',price:75}];
+    SESSION_OPTS=PROF.session_options||[{duration:40,label:'Standard Session — 40 min',price:75}];
     document.getElementById('wName').textContent='Hello, '+PROF.name.split(' ')[0];
     if(PROF.credit_balance&&PROF.credit_balance>0){var cb=document.getElementById('creditBadge');cb.textContent='$'+PROF.credit_balance.toFixed(2)+' credit';cb.style.display='inline-block'}
     document.title='Nudge \u2014 '+PROF.name.split(' ')[0];

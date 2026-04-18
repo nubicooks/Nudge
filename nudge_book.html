@@ -52,6 +52,32 @@ input::placeholder{color:var(--brown3);opacity:.5}
 .submit-btn:hover{background:var(--red-h)}
 .submit-btn:disabled{opacity:.4;cursor:default}
 
+/* ELIGIBILITY SCREENER */
+.elig{margin-bottom:16px;padding:16px 18px;background:#fcecec;border:2px solid #a83030;border-radius:10px}
+.elig-tag{font-family:'IBM Plex Mono',monospace;font-size:.5rem;letter-spacing:3px;color:#a83030;text-transform:uppercase;margin-bottom:10px;font-weight:600}
+.elig-q{font-size:.72rem;color:var(--brown);line-height:1.6;margin-bottom:12px}
+.elig-q strong{font-weight:700}
+.elig-radios{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.elig-radio{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#fff;border:1.5px solid #e8bdbd;border-radius:8px;cursor:pointer;transition:border-color .15s}
+.elig-radio:hover{border-color:#a83030}
+.elig-radio.sel{border-color:#a83030;background:#fdf5f5}
+.elig-radio input{width:auto;margin:0;flex-shrink:0;margin-top:2px}
+.elig-radio-label{font-size:.7rem;line-height:1.5;color:var(--brown)}
+.elig-radio-label b{display:block;font-weight:600;margin-bottom:2px}
+.elig-warn{font-size:.58rem;color:#7a2020;line-height:1.5;padding-top:8px;border-top:1px solid #e8bdbd;display:none}
+.elig.ineligible .elig-warn{display:block}
+.elig-pass-note{font-size:.55rem;color:var(--brown2);font-style:italic;margin-top:8px;line-height:1.5}
+
+/* CONSENT CHECKBOX */
+.consent{margin-top:14px;padding:12px 14px;background:var(--cream);border:1.5px solid var(--cream2);border-radius:8px;display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.consent input{width:auto;margin:0;margin-top:3px;flex-shrink:0}
+.consent-text{font-size:.6rem;color:var(--brown2);line-height:1.55}
+.consent-text a{color:var(--red);text-decoration:underline}
+
+/* ADDRESS & NOTES */
+textarea{width:100%;padding:10px 12px;background:var(--cream);border:1.5px solid var(--cream2);color:var(--brown);font-family:'Libre Franklin';font-size:.8rem;border-radius:8px;appearance:none;-webkit-appearance:none;resize:vertical;min-height:60px}
+textarea:focus{outline:none;border-color:var(--red)}
+
 /* SUCCESS SCREEN */
 .success{text-align:center;padding:40px 16px}
 .success-icon{
@@ -90,6 +116,19 @@ footer a{color:var(--red);text-decoration:none}
       <p>Tell us a little about yourself and we'll get you set up.</p>
     </div>
     <div class="card">
+
+      <!-- ELIGIBILITY SCREENER -->
+      <div class="elig" id="eligBlock">
+        <div class="elig-tag">Eligibility &middot; required</div>
+        <div class="elig-q">Do you currently have any of the following active electronic implants: <strong>pacemaker, implantable defibrillator (ICD), cochlear implant, deep brain stimulator, vagus nerve stimulator, spinal cord stimulator, or electronic insulin pump</strong>?</div>
+        <div class="elig-radios">
+          <label class="elig-radio" id="eligNo"><input type="radio" name="elig" value="no" onchange="setElig('no')"><span class="elig-radio-label"><b>No</b>I do not have any of the listed implants</span></label>
+          <label class="elig-radio" id="eligYes"><input type="radio" name="elig" value="yes" onchange="setElig('yes')"><span class="elig-radio-label"><b>Yes</b>I have one of the listed implants</span></label>
+        </div>
+        <div class="elig-warn" id="eligWarn"><strong>Please do not complete this booking.</strong> Sessions are not available to anyone with an active electronic implant. If you have questions, call or text (240) 356-3393.</div>
+        <div class="elig-pass-note">Passive metal implants &mdash; plates, screws, dental work, copper IUD &mdash; do not affect eligibility.</div>
+      </div>
+
       <div class="row">
         <div>
           <label>First Name</label>
@@ -109,6 +148,14 @@ footer a{color:var(--red);text-decoration:none}
 
       <div class="divider"></div>
 
+      <label>Session Address</label>
+      <input id="fAddress" placeholder="Street, city, unit #" autocomplete="street-address">
+
+      <label>Anything I should know? (optional)</label>
+      <textarea id="fNotes" placeholder="Pets, access instructions, parking, anything else"></textarea>
+
+      <div class="divider"></div>
+
       <label>Session Type</label>
       <div class="select-wrap">
         <select id="fTier" onchange="updateTier()">
@@ -120,6 +167,12 @@ footer a{color:var(--red);text-decoration:none}
       <div class="tier-info tier-free" id="tierInfo">
         Limited time offer. No payment needed. Just come experience it.
       </div>
+
+      <!-- CONSENT -->
+      <label class="consent">
+        <input type="checkbox" id="fConsent">
+        <span class="consent-text">I have read the <a href="https://thesolstandard.com/info.html" target="_blank">information packet</a> and understand that the Nothing Box is not an FDA-approved medical device and is not intended to diagnose, treat, cure, or prevent any condition.</span>
+      </label>
 
       <div class="error" id="errMsg"></div>
 
@@ -151,12 +204,70 @@ footer a{color:var(--red);text-decoration:none}
 <footer>Powered by <a href="/">Nudge</a> &mdash; the Sol Standard</footer>
 
 <script>
+var eligState = null;  // null = not answered, 'no' = eligible, 'yes' = ineligible
+var hasToken = false;  // set when arriving from consent flow
+
 async function init() {
   try {
     var r = await fetch('/api/public/business');
     var biz = await r.json();
     if (biz.name) document.getElementById('bizName').textContent = 'Book at ' + biz.name;
   } catch(e) {}
+
+  // Check for consent token
+  var params = new URLSearchParams(window.location.search);
+  var token = params.get('token');
+  if (token) {
+    try {
+      var r2 = await fetch('/api/public/client-by-token/' + encodeURIComponent(token));
+      if (r2.ok) {
+        var c = await r2.json();
+        if (c.consented) {
+          hasToken = true;
+          // Prefill fields
+          document.getElementById('fFirst').value = c.first || '';
+          document.getElementById('fLast').value = c.last || '';
+          document.getElementById('fPhone').value = c.phone || '';
+          document.getElementById('fEmail').value = c.email || '';
+          document.getElementById('fAddress').value = c.address || '';
+          // Hide eligibility block and consent block (already handled on consent page)
+          var elig = document.getElementById('eligBlock');
+          if (elig) elig.style.display = 'none';
+          var consentWrap = document.querySelector('.consent');
+          if (consentWrap) consentWrap.style.display = 'none';
+          // Auto-check consent checkbox (so validation passes)
+          var consentInput = document.getElementById('fConsent');
+          if (consentInput) consentInput.checked = true;
+          // Unlock submit
+          eligState = 'no';
+          document.getElementById('submitBtn').disabled = false;
+          return;
+        }
+      }
+    } catch (e) {
+      // Fall through to normal flow if lookup fails
+      console.error('Token lookup failed', e);
+    }
+  }
+  // Normal flow: no token → eligibility question required
+  document.getElementById('submitBtn').disabled = true;
+}
+
+function setElig(val) {
+  eligState = val;
+  document.getElementById('eligNo').classList.toggle('sel', val === 'no');
+  document.getElementById('eligYes').classList.toggle('sel', val === 'yes');
+  var block = document.getElementById('eligBlock');
+  var btn = document.getElementById('submitBtn');
+  if (val === 'yes') {
+    block.classList.add('ineligible');
+    btn.disabled = true;
+    btn.textContent = 'Not eligible for booking';
+  } else if (val === 'no') {
+    block.classList.remove('ineligible');
+    btn.disabled = false;
+    btn.textContent = 'Request Appointment';
+  }
 }
 
 function updateTier() {
@@ -179,12 +290,18 @@ async function doSubmit() {
   var last = document.getElementById('fLast').value.trim();
   var phone = document.getElementById('fPhone').value.trim();
   var email = document.getElementById('fEmail').value.trim();
+  var address = document.getElementById('fAddress').value.trim();
+  var notes = document.getElementById('fNotes').value.trim();
   var tier = document.getElementById('fTier').value;
+  var consent = document.getElementById('fConsent').checked;
   var err = document.getElementById('errMsg');
   err.style.display = 'none';
 
+  if (eligState !== 'no') { showErr('Please answer the eligibility question above'); return }
   if (!first || !last) { showErr('Please enter your first and last name'); return }
   if (!phone && !email) { showErr('Please enter a phone number or email so we can reach you'); return }
+  if (!address) { showErr('Please enter the session address'); return }
+  if (!consent) { showErr('Please acknowledge the information packet to continue'); return }
 
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('submitBtn').textContent = 'Submitting...';
@@ -194,12 +311,16 @@ async function doSubmit() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        first: first, last: last, phone: phone, email: email, tier: tier
+        first: first, last: last, phone: phone, email: email, tier: tier,
+        eligibility_confirmed: true,
+        consent_acknowledged: consent,
+        session_address: address,
+        session_notes: notes
       })
     });
     var d = await r.json();
     if (d.error) {
-      showErr(d.error);
+      showErr(d.message || d.error);
       document.getElementById('submitBtn').disabled = false;
       document.getElementById('submitBtn').textContent = 'Request Appointment';
       return;

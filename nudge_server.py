@@ -230,7 +230,7 @@ def init_db():
     CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(biz_id, client_id);
     """)
     # Migrate existing databases — add new columns safely
-    for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL'),('dob','TEXT','NULL'),('gender','TEXT','NULL'),('address','TEXT','NULL'),('emergency_contact','TEXT','NULL'),('emergency_phone','TEXT','NULL'),('medical_notes','TEXT','NULL'),('archived','INTEGER','0'),('archived_at','TIMESTAMP','NULL'),('sms_opt_out','INTEGER','0')]:
+    for col, ctype, default in [('status','TEXT',"'active'"),('deleted_at','TIMESTAMP','NULL'),('delete_reason','TEXT','NULL'),('dob','TEXT','NULL'),('gender','TEXT','NULL'),('address','TEXT','NULL'),('emergency_contact','TEXT','NULL'),('emergency_phone','TEXT','NULL'),('medical_notes','TEXT','NULL'),('archived','INTEGER','0'),('archived_at','TIMESTAMP','NULL'),('sms_opt_out','INTEGER','0'),('eligibility_confirmed','INTEGER','0'),('eligibility_confirmed_at','TIMESTAMP','NULL'),('consent_acknowledged','INTEGER','0'),('consent_acknowledged_at','TIMESTAMP','NULL'),('session_address','TEXT','NULL'),('session_notes','TEXT','NULL'),('consent_signature','TEXT','NULL'),('consent_clauses','TEXT','NULL'),('consent_ip','TEXT','NULL')]:
         try: db.execute(f"ALTER TABLE clients ADD COLUMN {col} {ctype} DEFAULT {default}")
         except: pass
     for col, ctype, default in [('practitioner_note','TEXT','NULL'),('session_data','TEXT','NULL'),('sent_at','TIMESTAMP','NULL'),('status','TEXT',"'draft'")]:
@@ -622,6 +622,10 @@ def client_page(token):
 def book_page():
     return send_from_directory(SCRIPT_DIR, 'nudge_book.html')
 
+@app.route('/consent')
+def consent_page():
+    return send_from_directory(SCRIPT_DIR, 'consent.html')
+
 @app.route('/welcome/<token>')
 def welcome_page(token):
     return send_from_directory(SCRIPT_DIR, 'nudge_welcome.html')
@@ -719,6 +723,90 @@ def pub_biz():
     if not biz: return jsonify({})
     return jsonify({'name': biz['name'], 'phone': biz['phone'], 'price': biz['session_price']})
 
+@app.route('/api/public/consent', methods=['POST'])
+def pub_consent():
+    """Accept a signed consent submission. Creates/updates a client record with status='consented'
+    and returns a token the booking page uses to look them up (prefilled, skipping the screener)."""
+    d = request.json or {}
+    first = (d.get('first') or '').strip()
+    last = (d.get('last') or '').strip()
+    phone = (d.get('phone') or '').strip()
+    email = (d.get('email') or '').strip()
+    address = (d.get('address') or '').strip()
+    eligible = bool(d.get('eligible'))  # True = no implants (can proceed)
+    clauses = d.get('clauses') or {}  # dict of {clause_key: True}
+    signature = (d.get('signature') or '').strip()  # typed name
+    if not first or not last: return jsonify({'error': 'Name required'}), 400
+    if not phone and not email: return jsonify({'error': 'Phone or email required'}), 400
+    if not address: return jsonify({'error': 'Address required'}), 400
+    if not eligible: return jsonify({'error': 'not_eligible',
+        'message': 'Sessions are not available to anyone with a medical implant. Please do not submit this form.'}), 400
+    # All required clauses must be checked
+    required_clauses = ['not_medical', 'privacy', 'liability']
+    for k in required_clauses:
+        if not clauses.get(k):
+            return jsonify({'error': 'missing_clause',
+                'message': f'Please check all acknowledgment boxes before signing.'}), 400
+    if not signature: return jsonify({'error': 'signature_required',
+        'message': 'Please type your name to sign.'}), 400
+    # Signature must match the first+last name to count as valid
+    full_name = (first + ' ' + last).strip().lower()
+    if signature.strip().lower() != full_name:
+        return jsonify({'error': 'signature_mismatch',
+            'message': 'Your typed signature must match your full name exactly.'}), 400
+    db = get_db()
+    biz = get_biz(db)
+    if not biz: return jsonify({'error': 'Business not found'}), 500
+    name = first + ' ' + last
+    client = db.execute("SELECT * FROM clients WHERE biz_id=? AND name=? COLLATE NOCASE", (biz['id'], name)).fetchone()
+    import json as _json
+    clauses_json = _json.dumps(clauses)
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    if client:
+        cid = client['id']; token = client['token']
+        if phone: db.execute("UPDATE clients SET phone=? WHERE id=?", (phone, cid))
+        if email: db.execute("UPDATE clients SET email=? WHERE id=?", (email, cid))
+        db.execute("""UPDATE clients SET status='consented',
+            eligibility_confirmed=1, eligibility_confirmed_at=CURRENT_TIMESTAMP,
+            consent_acknowledged=1, consent_acknowledged_at=CURRENT_TIMESTAMP,
+            session_address=?, consent_signature=?, consent_clauses=?, consent_ip=?
+            WHERE id=?""",
+            (address, signature, clauses_json, client_ip, cid))
+    else:
+        token = gen_token()
+        db.execute("""INSERT INTO clients
+            (biz_id,name,phone,email,token,status,
+             eligibility_confirmed,eligibility_confirmed_at,
+             consent_acknowledged,consent_acknowledged_at,
+             session_address,consent_signature,consent_clauses,consent_ip)
+            VALUES (?,?,?,?,?,'consented',1,CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP,?,?,?,?)""",
+            (biz['id'], name, phone, email, token, address, signature, clauses_json, client_ip))
+        cid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    db.commit()
+    print(f"\n  *** CONSENT RECEIVED: {name} | {phone} | {email} ***")
+    print(f"  *** Signature: {signature} | Clauses: {list(clauses.keys())} ***\n")
+    return jsonify({'status': 'consented', 'token': token, 'client_id': cid})
+
+@app.route('/api/public/client-by-token/<token>')
+def pub_client_by_token(token):
+    """Look up an existing consented client by their token (used by /book after consent)."""
+    db = get_db()
+    biz = get_biz(db)
+    if not biz: return jsonify({'error': 'Business not found'}), 500
+    c = db.execute("""SELECT id, name, phone, email, session_address, consent_acknowledged
+        FROM clients WHERE biz_id=? AND token=? AND status!='deleted'""",
+        (biz['id'], token)).fetchone()
+    if not c: return jsonify({'error': 'not_found'}), 404
+    parts = (c['name'] or '').split(' ', 1)
+    return jsonify({
+        'first': parts[0] if parts else '',
+        'last': parts[1] if len(parts) > 1 else '',
+        'phone': c['phone'] or '',
+        'email': c['email'] or '',
+        'address': c['session_address'] or '',
+        'consented': bool(c['consent_acknowledged']),
+    })
+
 @app.route('/api/public/inquiry', methods=['POST'])
 def pub_inquiry():
     d = request.json
@@ -727,8 +815,19 @@ def pub_inquiry():
     phone = d.get('phone', '').strip()
     email = d.get('email', '').strip()
     tier = d.get('tier', 'free').strip()
+    eligibility = bool(d.get('eligibility_confirmed'))
+    consent = bool(d.get('consent_acknowledged'))
+    session_address = (d.get('session_address') or '').strip()
+    session_notes = (d.get('session_notes') or '').strip()
+    # Validation
     if not first or not last: return jsonify({'error': 'Name required'}), 400
     if not phone and not email: return jsonify({'error': 'Phone or email required'}), 400
+    if not eligibility:
+        return jsonify({'error': 'eligibility_not_confirmed',
+            'message': 'Sessions are not available to anyone with an active electronic implant. If you do not have one of the listed implants, please confirm eligibility before booking.'}), 400
+    if not consent:
+        return jsonify({'error': 'consent_not_acknowledged',
+            'message': 'Please acknowledge the information packet and the not-a-medical-device framing to proceed.'}), 400
     name = first + ' ' + last
     tier_label = {'free': 'Try for Free', 'single': 'Single Session', 'pack': '4-Session Pack'}.get(tier, tier)
     db = get_db()
@@ -739,19 +838,33 @@ def pub_inquiry():
         cid = client['id']; token = client['token']
         if phone: db.execute("UPDATE clients SET phone=? WHERE id=?", (phone, cid))
         if email: db.execute("UPDATE clients SET email=? WHERE id=?", (email, cid))
-        db.execute("UPDATE clients SET notes=?,status='new' WHERE id=?", (f"Tier: {tier_label}", cid))
+        db.execute("""UPDATE clients SET notes=?, status='new',
+            eligibility_confirmed=1, eligibility_confirmed_at=CURRENT_TIMESTAMP,
+            consent_acknowledged=1, consent_acknowledged_at=CURRENT_TIMESTAMP,
+            session_address=COALESCE(NULLIF(?,''), session_address),
+            session_notes=COALESCE(NULLIF(?,''), session_notes)
+            WHERE id=?""",
+            (f"Tier: {tier_label}", session_address, session_notes, cid))
     else:
         token = gen_token()
         notes = f"Tier: {tier_label}"
-        db.execute("INSERT INTO clients (biz_id,name,phone,email,token,notes,status) VALUES (?,?,?,?,?,?,'new')",
-            (biz['id'], name, phone, email, token, notes))
+        db.execute("""INSERT INTO clients
+            (biz_id,name,phone,email,token,notes,status,
+             eligibility_confirmed,eligibility_confirmed_at,
+             consent_acknowledged,consent_acknowledged_at,
+             session_address,session_notes)
+            VALUES (?,?,?,?,?,?,'new',1,CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP,?,?)""",
+            (biz['id'], name, phone, email, token, notes,
+             session_address or None, session_notes or None))
         cid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
     db.commit()
     if phone:
         send_sms(phone, f"Hi {first}! Thanks for your interest in {biz['name']}. We'll be in touch soon to get your session scheduled.",
             biz_id=biz['id'])
     print(f"\n  *** NEW INQUIRY: {name} | {phone} | {email} | {tier_label} ***")
-    print(f"  *** Action needed: Send welcome package ***\n")
+    print(f"  *** Eligibility confirmed, consent acknowledged ***")
+    if session_address: print(f"  *** Address: {session_address} ***")
+    if session_notes: print(f"  *** Notes: {session_notes} ***\n")
     return jsonify({'status': 'received', 'client_id': cid})
 
 @app.route('/report/<token>')

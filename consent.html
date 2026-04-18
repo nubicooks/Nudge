@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consent — the Sol Standard</title>
+<meta name="description" content="Everything to know before your Nothing Box session with the Sol Standard.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050608;
+  --bg-rise: #070a0e;
+  --surface: #0a0d12;
+  --glass: rgba(15, 19, 24, 0.55);
+  --border: #1a1f2a;
+  --border-hi: rgba(0,229,199,0.22);
+  --accent: #00e5c7;
+  --accent-dim: #00b09a;
+  --accent-glow: rgba(0,229,199,0.18);
+  --accent-soft: rgba(0,229,199,0.06);
+  --warm: #e8a44a;
+  --warm-soft: rgba(232,164,74,0.05);
+  --text: #c8cdd6;
+  --text-bright: #eaecf0;
+  --text-dim: #5a6270;
+  --text-faint: #3a404a;
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --sans: 'DM Sans', system-ui, sans-serif;
+  --mono: 'Space Mono', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.75;
+  font-weight: 300;
+}
+
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:9999;
+  mix-blend-mode: overlay;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, rgba(255,255,255,0.008) 3px, transparent 4px);
+  z-index: 9998;
+}
+
+/* TOP */
+.top-bar {
+  padding: 22px 40px;
+  border-bottom: 1px solid rgba(26,31,42,0.5);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background: rgba(5,6,8,0.6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.top-logo {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 4px;
+  color: var(--text-bright);
+  text-transform: lowercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.top-logo .mark {
+  width: 16px; height: 16px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  position: relative;
+  display: inline-block;
+}
+.top-logo .mark::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.top-logo .sol { color: var(--warm); }
+.top-tag {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* WRAP */
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 60px 40px 120px;
+}
+
+@media(max-width:720px){
+  .top-bar { padding: 16px 20px; }
+  .wrap { padding: 40px 20px 80px; }
+}
+
+/* INTRO */
+.intro {
+  text-align: center;
+  padding-bottom: 60px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 60px;
+}
+.intro-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 5px;
+  color: var(--warm);
+  text-transform: uppercase;
+  margin-bottom: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.intro-eyebrow::before, .intro-eyebrow::after {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--warm);
+  opacity: 0.5;
+}
+.intro h1 {
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(2.4rem, 6vw, 3.8rem);
+  color: var(--text-bright);
+  line-height: 1.1;
+  margin-bottom: 22px;
+  letter-spacing: -0.01em;
+}
+.intro h1 em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 400;
+}
+.intro-sub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--text);
+  max-width: 440px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* SECTION */
+section {
+  margin-bottom: 56px;
+}
+section h2 {
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(1.7rem, 3.5vw, 2.2rem);
+  color: var(--text-bright);
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+section h2 em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.sect-label {
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  letter-spacing: 4px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.sect-label::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background: var(--accent);
+}
+
+section p {
+  margin-bottom: 14px;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.8;
+}
+section p.lede {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.15rem;
+  color: var(--text-bright);
+  line-height: 1.65;
+  margin-bottom: 20px;
+}
+
+/* BULLET LIST */
+.bullets {
+  list-style: none;
+  margin: 16px 0 20px;
+  padding: 0;
+}
+.bullets li {
+  padding: 10px 0 10px 24px;
+  position: relative;
+  color: var(--text);
+  font-size: 0.98rem;
+  line-height: 1.75;
+  border-bottom: 1px dashed var(--border);
+}
+.bullets li:last-child { border-bottom: none; }
+.bullets li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+.bullets li strong {
+  color: var(--text-bright);
+  font-weight: 500;
+}
+
+/* STEP LIST */
+.steps {
+  margin: 20px 0;
+  padding: 0;
+  list-style: none;
+}
+.steps li {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: baseline;
+}
+.steps li:last-child { border-bottom: none; }
+.steps li .tm {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--warm);
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+.steps li .body h4 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.15rem;
+  color: var(--text-bright);
+  margin-bottom: 4px;
+}
+.steps li .body p {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0;
+}
+
+/* QUOTE / CALLOUT */
+.callout {
+  padding: 28px 32px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 24px 0;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  position: relative;
+  overflow: hidden;
+}
+.callout::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 15%; right: 15%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  opacity: 0.4;
+}
+.callout p {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  color: var(--text-bright);
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+.callout p:last-child { margin-bottom: 0; }
+.callout .tag {
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  letter-spacing: 4px;
+  color: var(--warm);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* FAQ */
+.faq-item {
+  border-bottom: 1px solid var(--border);
+  padding: 20px 0;
+}
+.faq-item:first-of-type { border-top: 1px solid var(--border); margin-top: 20px; }
+.faq-q {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.1rem;
+  color: var(--text-bright);
+  cursor: pointer;
+  padding: 4px 40px 4px 0;
+  position: relative;
+  transition: color 0.2s;
+  line-height: 1.4;
+}
+.faq-q::after {
+  content: '+';
+  position: absolute;
+  right: 0;
+  top: 2px;
+  font-family: var(--mono);
+  color: var(--accent);
+  transition: transform 0.3s;
+  font-size: 1.2rem;
+}
+.faq-q.open::after { transform: rotate(45deg); }
+.faq-q:hover { color: var(--accent); }
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, padding 0.3s;
+  color: var(--text);
+  line-height: 1.75;
+  font-size: 0.95rem;
+  font-weight: 300;
+}
+.faq-a.open {
+  max-height: 800px;
+  padding: 14px 0 4px;
+}
+
+/* ACKNOWLEDGMENT BOX */
+.ack {
+  margin-top: 80px;
+  padding: 36px 32px;
+  border: 1px solid var(--warm);
+  border-radius: 12px;
+  background: var(--warm-soft);
+}
+.ack h3 {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 4px;
+  color: var(--warm);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.ack p {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.75;
+  margin-bottom: 12px;
+  font-weight: 300;
+}
+.ack p:last-child { margin-bottom: 0; }
+.ack .sign {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(232,164,74,0.3);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  text-transform: uppercase;
+}
+.ack .sign span { color: var(--warm); }
+
+/* FOOTER */
+footer {
+  padding: 60px 40px 40px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  background: var(--bg-rise);
+  margin-top: 80px;
+}
+.footer-logo {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 5px;
+  color: var(--text-bright);
+  margin-bottom: 16px;
+  text-transform: lowercase;
+}
+.footer-logo span { color: var(--warm); }
+.footer-legal {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  line-height: 1.8;
+  max-width: 640px;
+  margin: 0 auto 12px;
+  font-weight: 300;
+}
+.footer-copy {
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  letter-spacing: 2px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+/* BOOK CTA */
+.book-cta-wrap {
+  margin-top: 80px;
+  padding: 48px 36px;
+  background: linear-gradient(135deg, rgba(0,229,199,0.06), rgba(232,164,74,0.04));
+  border: 1px solid var(--border-hi);
+  border-radius: 14px;
+  text-align: center;
+}
+.book-cta-wrap .eyebrow {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 4px;
+  color: var(--warm);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.book-cta-wrap h3 {
+  font-family: var(--serif);
+  font-weight: 300;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  color: var(--text-bright);
+  line-height: 1.15;
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+.book-cta-wrap h3 em {
+  font-style: italic;
+  color: var(--accent);
+  font-weight: 400;
+}
+.book-cta-wrap p {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  color: var(--text);
+  max-width: 420px;
+  margin: 0 auto 28px;
+  line-height: 1.6;
+}
+.book-btn {
+  display: inline-block;
+  padding: 16px 42px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  background: var(--accent-soft);
+  transition: all 0.3s;
+}
+.book-btn:hover {
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+.book-cta-wrap .micro {
+  margin-top: 20px;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+/* FORM FIELDS */
+.field { margin-bottom: 20px; }
+.field label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.field input, .field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus, .field textarea:focus {
+  border-color: var(--accent);
+}
+.field.row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media(max-width:520px){ .field.row2 { grid-template-columns: 1fr; } }
+.field.row2 > div { margin: 0; }
+
+/* ELIGIBILITY BLOCK */
+.elig-block {
+  margin-bottom: 36px;
+  padding: 22px 24px;
+  background: rgba(40,12,12,0.4);
+  border: 2px solid rgba(255,100,100,0.35);
+  border-radius: 12px;
+}
+.elig-block .elig-tag {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 3px;
+  color: #ff8080;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.elig-block .elig-q {
+  font-size: 0.95rem;
+  color: #eaecf0;
+  line-height: 1.65;
+  margin-bottom: 16px;
+}
+.elig-block .elig-q strong { font-weight: 500; }
+.elig-radios { display: flex; flex-direction: column; gap: 10px; }
+.elig-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(15,19,24,0.65);
+  border: 1px solid rgba(255,100,100,0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.elig-radio:hover { border-color: rgba(255,100,100,0.5); }
+.elig-radio.sel { border-color: #ff8080; background: rgba(40,12,12,0.6); }
+.elig-radio input { width: auto; margin: 3px 0 0 0; flex-shrink: 0; }
+.elig-radio-label { font-size: 0.9rem; line-height: 1.5; color: var(--text); }
+.elig-radio-label b { display: block; font-weight: 500; margin-bottom: 2px; color: var(--text-bright); }
+.elig-block .ineligible-msg {
+  display: none;
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(255,100,100,0.1);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  color: #ff8080;
+  line-height: 1.5;
+}
+.elig-block.ineligible .ineligible-msg { display: block; }
+
+/* CLAUSES */
+.clauses { margin: 32px 0; }
+.clause-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.clause-box:hover { border-color: var(--border-hi); }
+.clause-box.checked { border-color: var(--accent); background: rgba(0,229,199,0.04); }
+.clause-box input {
+  width: auto;
+  margin-top: 4px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  transform: scale(1.2);
+}
+.clause-box .clause-text {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+.clause-box .clause-text strong {
+  display: block;
+  color: var(--text-bright);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+/* SIGNATURE */
+.sig-section {
+  margin: 40px 0 28px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+.sig-section .sig-intro {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.05rem;
+  color: var(--text);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.sig-input {
+  width: 100%;
+  padding: 18px 20px !important;
+  font-family: var(--serif) !important;
+  font-style: italic;
+  font-size: 1.5rem !important;
+  color: var(--accent) !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--accent) !important;
+  border-radius: 10px;
+  outline: none;
+  letter-spacing: 0.02em;
+}
+
+/* SUBMIT + ERRORS */
+.submit-wrap { margin-top: 32px; }
+.submit-btn {
+  width: 100%;
+  padding: 18px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.submit-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+.submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.err-msg {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(255,100,100,0.1);
+  border: 1px solid rgba(255,100,100,0.35);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #ff8080;
+  line-height: 1.5;
+  display: none;
+}
+.err-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="top-logo">
+    <span class="mark"></span>
+    the <span class="sol">sol</span> standard
+  </div>
+  <div class="top-tag">Consent</div>
+</div>
+
+<div class="wrap">
+
+  <!-- INTRO -->
+  <div class="intro">
+    <div class="intro-eyebrow">before you book</div>
+    <h1>Consent &amp; <em>acknowledgment.</em></h1>
+    <p class="intro-sub">A few things to check, a few things to confirm, and your signature. Once this is signed, you'll be taken to book your time.</p>
+  </div>
+
+  <form id="consentForm" onsubmit="return doSubmit(event)">
+
+    <!-- ELIGIBILITY -->
+    <div class="elig-block" id="eligBlock">
+      <div class="elig-tag">Eligibility &middot; required</div>
+      <div class="elig-q">Do you currently have any <strong>medical implant</strong> of any kind? This includes pacemakers, implantable defibrillators, cochlear implants, deep brain stimulators, vagus nerve stimulators, spinal cord stimulators, electronic insulin pumps, and any other medical implant.</div>
+      <div class="elig-radios">
+        <label class="elig-radio" id="eligNo"><input type="radio" name="elig" value="no" onchange="setElig('no')"><span class="elig-radio-label"><b>No</b>I do not have any medical implants</span></label>
+        <label class="elig-radio" id="eligYes"><input type="radio" name="elig" value="yes" onchange="setElig('yes')"><span class="elig-radio-label"><b>Yes</b>I have a medical implant</span></label>
+      </div>
+      <div class="ineligible-msg">Sessions are not available to anyone with any medical implant. Please do not continue this form.</div>
+    </div>
+
+    <!-- CLIENT INFO -->
+    <div class="field row2">
+      <div>
+        <label>First name</label>
+        <input id="fFirst" type="text" autocomplete="given-name">
+      </div>
+      <div>
+        <label>Last name</label>
+        <input id="fLast" type="text" autocomplete="family-name">
+      </div>
+    </div>
+    <div class="field row2">
+      <div>
+        <label>Phone</label>
+        <input id="fPhone" type="tel" autocomplete="tel" placeholder="(240) 555-1234">
+      </div>
+      <div>
+        <label>Email</label>
+        <input id="fEmail" type="email" autocomplete="email" placeholder="you@email.com">
+      </div>
+    </div>
+    <div class="field">
+      <label>Session address</label>
+      <input id="fAddress" type="text" autocomplete="street-address" placeholder="Street, city, unit #">
+    </div>
+
+    <!-- CLAUSES -->
+    <div class="clauses">
+      <label class="clause-box" id="clauseBox1">
+        <input type="checkbox" id="cl_not_medical" onchange="updateClause(this, 1)">
+        <span class="clause-text"><strong>Not a medical device or treatment.</strong>I understand that the Nothing Box is not an FDA-approved medical device. The Sol Standard is not providing medical advice, diagnosis, or treatment. Sessions are not a substitute for professional medical care. No guarantee of outcome is offered or implied.</span>
+      </label>
+
+      <label class="clause-box" id="clauseBox2">
+        <input type="checkbox" id="cl_privacy" onchange="updateClause(this, 2)">
+        <span class="clause-text"><strong>Data &amp; privacy.</strong>I understand that session data (sensor recordings, audio recording of the session, my name, contact details, any notes) is stored on systems controlled by the Sol Standard, will not be sold or shared with third parties, and may be deleted on request. The session audio is used to review practitioner notes, inform my written report, and serve as a record in case anything needs to be revisited.</span>
+      </label>
+
+      <label class="clause-box" id="clauseBox3">
+        <input type="checkbox" id="cl_liability" onchange="updateClause(this, 3)">
+        <span class="clause-text"><strong>Voluntary participation &amp; liability release.</strong>I am participating voluntarily and may withdraw at any time. I release the Sol Standard from liability for ordinary harms that may arise during or after the session, excluding gross negligence or intentional misconduct.</span>
+      </label>
+    </div>
+
+    <!-- SIGNATURE -->
+    <div class="sig-section">
+      <p class="sig-intro">Type your full name to sign. It must match the name entered above.</p>
+      <input class="sig-input" id="fSignature" type="text" placeholder="Your full name" autocomplete="off">
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="submit-wrap">
+      <button type="submit" class="submit-btn" id="submitBtn">Consent &amp; continue to booking</button>
+      <div class="err-msg" id="errMsg"></div>
+    </div>
+
+  </form>
+
+</div>
+
+<footer>
+  <div class="footer-logo">the <span>sol</span> standard</div>
+  <div class="footer-legal">
+    The Nothing Box is a frequency wellness session by the Sol Standard. It is not an FDA-approved medical device. No claims of diagnosis, treatment, cure, or prevention of any disease are made or implied.
+  </div>
+  <div class="footer-copy">&copy; 2026 the Sol Standard &middot; DMV Area</div>
+</footer>
+
+<script>
+var eligState = null;
+
+function setElig(val) {
+  eligState = val;
+  document.getElementById('eligNo').classList.toggle('sel', val === 'no');
+  document.getElementById('eligYes').classList.toggle('sel', val === 'yes');
+  var block = document.getElementById('eligBlock');
+  var btn = document.getElementById('submitBtn');
+  if (val === 'yes') {
+    block.classList.add('ineligible');
+    btn.disabled = true;
+  } else {
+    block.classList.remove('ineligible');
+    btn.disabled = false;
+  }
+}
+
+function updateClause(input, n) {
+  document.getElementById('clauseBox' + n).classList.toggle('checked', input.checked);
+}
+
+function showErr(msg) {
+  var e = document.getElementById('errMsg');
+  e.textContent = msg;
+  e.classList.add('show');
+}
+
+function clearErr() {
+  document.getElementById('errMsg').classList.remove('show');
+}
+
+async function doSubmit(ev) {
+  ev.preventDefault();
+  clearErr();
+
+  if (eligState !== 'no') { showErr('Please answer the eligibility question'); return false; }
+
+  var first = document.getElementById('fFirst').value.trim();
+  var last = document.getElementById('fLast').value.trim();
+  var phone = document.getElementById('fPhone').value.trim();
+  var email = document.getElementById('fEmail').value.trim();
+  var address = document.getElementById('fAddress').value.trim();
+  var sig = document.getElementById('fSignature').value.trim();
+
+  if (!first || !last) { showErr('Please enter your first and last name'); return false; }
+  if (!phone && !email) { showErr('Please enter a phone or email'); return false; }
+  if (!address) { showErr('Please enter the session address'); return false; }
+
+  var clauses = {
+    not_medical: document.getElementById('cl_not_medical').checked,
+    privacy: document.getElementById('cl_privacy').checked,
+    liability: document.getElementById('cl_liability').checked
+  };
+  if (!clauses.not_medical || !clauses.privacy || !clauses.liability) {
+    showErr('Please check all three acknowledgment boxes');
+    return false;
+  }
+
+  if (!sig) { showErr('Please type your name to sign'); return false; }
+  var expected = (first + ' ' + last).trim().toLowerCase();
+  if (sig.toLowerCase() !== expected) {
+    showErr('Signature must match your full name exactly (first and last)');
+    return false;
+  }
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  try {
+    var r = await fetch('/api/public/consent', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        first: first, last: last, phone: phone, email: email, address: address,
+        eligible: true, clauses: clauses, signature: sig
+      })
+    });
+    var d = await r.json();
+    if (d.error) {
+      showErr(d.message || d.error);
+      btn.disabled = false;
+      btn.textContent = 'Consent & continue to booking';
+      return false;
+    }
+    window.location.href = '/book?token=' + encodeURIComponent(d.token);
+  } catch (e) {
+    showErr('Something went wrong. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'Consent & continue to booking';
+  }
+  return false;
+}
+</script>
+
+</body>
+</html>
