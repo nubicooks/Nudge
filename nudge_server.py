@@ -725,66 +725,40 @@ def pub_biz():
 
 @app.route('/api/public/consent', methods=['POST'])
 def pub_consent():
-    """Accept a signed consent submission. Creates/updates a client record with status='consented'
-    and returns a token the booking page uses to look them up (prefilled, skipping the screener)."""
+    """Accept a signed consent submission. Creates a provisional client record with status='consented'
+    and returns a token. Full client info (name/phone/email) is collected at /book."""
     d = request.json or {}
-    first = (d.get('first') or '').strip()
-    last = (d.get('last') or '').strip()
-    phone = (d.get('phone') or '').strip()
-    email = (d.get('email') or '').strip()
-    address = (d.get('address') or '').strip()
-    eligible = bool(d.get('eligible'))  # True = no implants (can proceed)
-    clauses = d.get('clauses') or {}  # dict of {clause_key: True}
-    signature = (d.get('signature') or '').strip()  # typed name
-    if not first or not last: return jsonify({'error': 'Name required'}), 400
-    if not phone and not email: return jsonify({'error': 'Phone or email required'}), 400
-    if not address: return jsonify({'error': 'Address required'}), 400
+    eligible = bool(d.get('eligible'))
+    clauses = d.get('clauses') or {}
+    signature = (d.get('signature') or '').strip()
     if not eligible: return jsonify({'error': 'not_eligible',
-        'message': 'Sessions are not available to anyone with a medical implant. Please do not submit this form.'}), 400
-    # All required clauses must be checked
+        'message': 'Sessions are not available to anyone with a medical implant.'}), 400
     required_clauses = ['not_medical', 'privacy', 'liability']
     for k in required_clauses:
         if not clauses.get(k):
             return jsonify({'error': 'missing_clause',
-                'message': f'Please check all acknowledgment boxes before signing.'}), 400
+                'message': 'Please check all acknowledgment boxes before signing.'}), 400
     if not signature: return jsonify({'error': 'signature_required',
         'message': 'Please type your name to sign.'}), 400
-    # Signature must match the first+last name to count as valid
-    full_name = (first + ' ' + last).strip().lower()
-    if signature.strip().lower() != full_name:
-        return jsonify({'error': 'signature_mismatch',
-            'message': 'Your typed signature must match your full name exactly.'}), 400
     db = get_db()
     biz = get_biz(db)
     if not biz: return jsonify({'error': 'Business not found'}), 500
-    name = first + ' ' + last
-    client = db.execute("SELECT * FROM clients WHERE biz_id=? AND name=? COLLATE NOCASE", (biz['id'], name)).fetchone()
     import json as _json
     clauses_json = _json.dumps(clauses)
     client_ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
-    if client:
-        cid = client['id']; token = client['token']
-        if phone: db.execute("UPDATE clients SET phone=? WHERE id=?", (phone, cid))
-        if email: db.execute("UPDATE clients SET email=? WHERE id=?", (email, cid))
-        db.execute("""UPDATE clients SET status='consented',
-            eligibility_confirmed=1, eligibility_confirmed_at=CURRENT_TIMESTAMP,
-            consent_acknowledged=1, consent_acknowledged_at=CURRENT_TIMESTAMP,
-            session_address=?, consent_signature=?, consent_clauses=?, consent_ip=?
-            WHERE id=?""",
-            (address, signature, clauses_json, client_ip, cid))
-    else:
-        token = gen_token()
-        db.execute("""INSERT INTO clients
-            (biz_id,name,phone,email,token,status,
-             eligibility_confirmed,eligibility_confirmed_at,
-             consent_acknowledged,consent_acknowledged_at,
-             session_address,consent_signature,consent_clauses,consent_ip)
-            VALUES (?,?,?,?,?,'consented',1,CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP,?,?,?,?)""",
-            (biz['id'], name, phone, email, token, address, signature, clauses_json, client_ip))
-        cid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    # Create a provisional record. The real name/phone/email come in at /book via the same token.
+    token = gen_token()
+    placeholder_name = f"[consent pending] {signature}"
+    db.execute("""INSERT INTO clients
+        (biz_id,name,token,status,
+         eligibility_confirmed,eligibility_confirmed_at,
+         consent_acknowledged,consent_acknowledged_at,
+         consent_signature,consent_clauses,consent_ip)
+        VALUES (?,?,?,'consented',1,CURRENT_TIMESTAMP,1,CURRENT_TIMESTAMP,?,?,?)""",
+        (biz['id'], placeholder_name, token, signature, clauses_json, client_ip))
+    cid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
     db.commit()
-    print(f"\n  *** CONSENT RECEIVED: {name} | {phone} | {email} ***")
-    print(f"  *** Signature: {signature} | Clauses: {list(clauses.keys())} ***\n")
+    print(f"\n  *** CONSENT RECEIVED: signed '{signature}' | token={token[:8]}... ***")
     return jsonify({'status': 'consented', 'token': token, 'client_id': cid})
 
 @app.route('/api/public/client-by-token/<token>')
@@ -819,6 +793,7 @@ def pub_inquiry():
     consent = bool(d.get('consent_acknowledged'))
     session_address = (d.get('session_address') or '').strip()
     session_notes = (d.get('session_notes') or '').strip()
+    consent_token = (d.get('consent_token') or '').strip()
     # Validation
     if not first or not last: return jsonify({'error': 'Name required'}), 400
     if not phone and not email: return jsonify({'error': 'Phone or email required'}), 400
@@ -833,18 +808,26 @@ def pub_inquiry():
     db = get_db()
     biz = get_biz(db)
     if not biz: return jsonify({'error': 'Business not found'}), 500
-    client = db.execute("SELECT * FROM clients WHERE biz_id=? AND name=? COLLATE NOCASE", (biz['id'], name)).fetchone()
+    # If we have a consent_token, update the provisional record from the consent flow
+    client = None
+    if consent_token:
+        client = db.execute("SELECT * FROM clients WHERE biz_id=? AND token=?",
+            (biz['id'], consent_token)).fetchone()
+    # Otherwise look up by name as before
+    if not client:
+        client = db.execute("SELECT * FROM clients WHERE biz_id=? AND name=? COLLATE NOCASE",
+            (biz['id'], name)).fetchone()
     if client:
         cid = client['id']; token = client['token']
         if phone: db.execute("UPDATE clients SET phone=? WHERE id=?", (phone, cid))
         if email: db.execute("UPDATE clients SET email=? WHERE id=?", (email, cid))
-        db.execute("""UPDATE clients SET notes=?, status='new',
+        db.execute("""UPDATE clients SET name=?, notes=?, status='new',
             eligibility_confirmed=1, eligibility_confirmed_at=CURRENT_TIMESTAMP,
             consent_acknowledged=1, consent_acknowledged_at=CURRENT_TIMESTAMP,
             session_address=COALESCE(NULLIF(?,''), session_address),
             session_notes=COALESCE(NULLIF(?,''), session_notes)
             WHERE id=?""",
-            (f"Tier: {tier_label}", session_address, session_notes, cid))
+            (name, f"Tier: {tier_label}", session_address, session_notes, cid))
     else:
         token = gen_token()
         notes = f"Tier: {tier_label}"

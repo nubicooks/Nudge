@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Book a Session — the Sol Standard</title>
-<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--red:#cc0000;--red-h:#e00a0a;--cream:#faf5eb;--cream2:#f2e8d6;--cream3:#e8dcc8;--brown:#2a1a0a;--brown2:#5a4a3a;--brown3:#8a7a6a;--green:#1a7a2e;--gold:#c49a3c;--white:#fff;--r:12px}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -13,7 +13,7 @@ body{background:var(--cream);color:var(--brown);font-family:'Libre Franklin',san
 
 header{background:var(--red);padding:20px;text-align:center;box-shadow:0 4px 20px rgba(204,0,0,.25)}
 .logo{font-family:'Great Vibes',cursive;font-size:2.2rem;color:#fff}
-.logo-sub{font-family:'IBM Plex Mono';font-size:.5rem;color:rgba(255,255,255,.5);letter-spacing:4px;display:block;margin-top:-4px}
+.logo-sub{font-family:'JetBrains Mono',monospace;font-size:.5rem;font-weight:500;color:rgba(255,255,255,.6);letter-spacing:3px;display:block;margin-top:-4px}
 
 .container{max-width:480px;margin:0 auto;padding:24px 16px 60px}
 .welcome{text-align:center;padding:24px 0 20px}
@@ -26,7 +26,7 @@ header{background:var(--red);padding:20px;text-align:center;box-shadow:0 4px 20p
 
 label{display:block;font-size:.5rem;color:var(--brown3);margin:14px 0 4px;letter-spacing:.5px;text-transform:uppercase;font-weight:600}
 label:first-child,.row label{margin-top:0}
-input,select{width:100%;padding:10px 12px;background:var(--cream);border:1.5px solid var(--cream2);color:var(--brown);font-family:'Libre Franklin';font-size:.8rem;border-radius:8px;appearance:none;-webkit-appearance:none}
+input:not([type="checkbox"]):not([type="radio"]),select{width:100%;padding:10px 12px;background:var(--cream);border:1.5px solid var(--cream2);color:var(--brown);font-family:'Libre Franklin';font-size:.8rem;border-radius:8px;appearance:none;-webkit-appearance:none}
 input:focus,select:focus{outline:none;border-color:var(--red)}
 input::placeholder{color:var(--brown3);opacity:.5}
 
@@ -70,7 +70,7 @@ input::placeholder{color:var(--brown3);opacity:.5}
 
 /* CONSENT CHECKBOX */
 .consent{margin-top:14px;padding:12px 14px;background:var(--cream);border:1.5px solid var(--cream2);border-radius:8px;display:flex;align-items:flex-start;gap:10px;cursor:pointer}
-.consent input{width:auto;margin:0;margin-top:3px;flex-shrink:0}
+.consent input{width:18px;height:18px;margin:0;margin-top:1px;flex-shrink:0;cursor:pointer;accent-color:var(--red)}
 .consent-text{font-size:.6rem;color:var(--brown2);line-height:1.55}
 .consent-text a{color:var(--red);text-decoration:underline}
 
@@ -113,21 +113,9 @@ footer a{color:var(--red);text-decoration:none}
   <div id="formView">
     <div class="welcome">
       <h1 id="bizName">Book a Session</h1>
-      <p>Tell us a little about yourself and we'll get you set up.</p>
+      <p>Your details to confirm the booking.</p>
     </div>
     <div class="card">
-
-      <!-- ELIGIBILITY SCREENER -->
-      <div class="elig" id="eligBlock">
-        <div class="elig-tag">Eligibility &middot; required</div>
-        <div class="elig-q">Do you currently have any of the following active electronic implants: <strong>pacemaker, implantable defibrillator (ICD), cochlear implant, deep brain stimulator, vagus nerve stimulator, spinal cord stimulator, or electronic insulin pump</strong>?</div>
-        <div class="elig-radios">
-          <label class="elig-radio" id="eligNo"><input type="radio" name="elig" value="no" onchange="setElig('no')"><span class="elig-radio-label"><b>No</b>I do not have any of the listed implants</span></label>
-          <label class="elig-radio" id="eligYes"><input type="radio" name="elig" value="yes" onchange="setElig('yes')"><span class="elig-radio-label"><b>Yes</b>I have one of the listed implants</span></label>
-        </div>
-        <div class="elig-warn" id="eligWarn"><strong>Please do not complete this booking.</strong> Sessions are not available to anyone with an active electronic implant. If you have questions, call or text (240) 356-3393.</div>
-        <div class="elig-pass-note">Passive metal implants &mdash; plates, screws, dental work, copper IUD &mdash; do not affect eligibility.</div>
-      </div>
 
       <div class="row">
         <div>
@@ -148,30 +136,24 @@ footer a{color:var(--red);text-decoration:none}
 
       <div class="divider"></div>
 
-      <label>Session Address</label>
-      <input id="fAddress" placeholder="Street, city, unit #" autocomplete="street-address">
-
-      <label>Anything I should know? (optional)</label>
-      <textarea id="fNotes" placeholder="Pets, access instructions, parking, anything else"></textarea>
-
-      <div class="divider"></div>
-
       <label>Session Type</label>
       <div class="select-wrap">
-        <select id="fTier" onchange="updateTier()">
+        <select id="fTier">
           <option value="free">Try for Free</option>
-          <option value="single">Single Session — $75</option>
-          <option value="pack">4-Session Pack — $250</option>
         </select>
       </div>
-      <div class="tier-info tier-free" id="tierInfo">
-        Limited time offer. No payment needed. Just come experience it.
+      <div class="tier-info tier-free">
+        Limited time offer. No payment needed.
       </div>
 
-      <!-- CONSENT -->
+      <label class="consent">
+        <input type="checkbox" id="fDMV">
+        <span class="consent-text">I live in the DMV area (DC, Maryland, or Northern Virginia)</span>
+      </label>
+
       <label class="consent">
         <input type="checkbox" id="fConsent">
-        <span class="consent-text">I have read the <a href="https://thesolstandard.com/info.html" target="_blank">information packet</a> and understand that the Nothing Box is not an FDA-approved medical device and is not intended to diagnose, treat, cure, or prevent any condition.</span>
+        <span class="consent-text">I have read the <a href="https://thesolstandard.com/info.html" target="_blank">information packet</a> and consent to its terms</span>
       </label>
 
       <div class="error" id="errMsg"></div>
@@ -204,9 +186,6 @@ footer a{color:var(--red);text-decoration:none}
 <footer>Powered by <a href="/">Nudge</a> &mdash; the Sol Standard</footer>
 
 <script>
-var eligState = null;  // null = not answered, 'no' = eligible, 'yes' = ineligible
-var hasToken = false;  // set when arriving from consent flow
-
 async function init() {
   try {
     var r = await fetch('/api/public/business');
@@ -214,7 +193,7 @@ async function init() {
     if (biz.name) document.getElementById('bizName').textContent = 'Book at ' + biz.name;
   } catch(e) {}
 
-  // Check for consent token
+  // If arriving from consent with ?token=xxx, prefill name/phone/email
   var params = new URLSearchParams(window.location.search);
   var token = params.get('token');
   if (token) {
@@ -223,65 +202,17 @@ async function init() {
       if (r2.ok) {
         var c = await r2.json();
         if (c.consented) {
-          hasToken = true;
-          // Prefill fields
           document.getElementById('fFirst').value = c.first || '';
           document.getElementById('fLast').value = c.last || '';
           document.getElementById('fPhone').value = c.phone || '';
           document.getElementById('fEmail').value = c.email || '';
-          document.getElementById('fAddress').value = c.address || '';
-          // Hide eligibility block and consent block (already handled on consent page)
-          var elig = document.getElementById('eligBlock');
-          if (elig) elig.style.display = 'none';
-          var consentWrap = document.querySelector('.consent');
-          if (consentWrap) consentWrap.style.display = 'none';
-          // Auto-check consent checkbox (so validation passes)
-          var consentInput = document.getElementById('fConsent');
-          if (consentInput) consentInput.checked = true;
-          // Unlock submit
-          eligState = 'no';
-          document.getElementById('submitBtn').disabled = false;
-          return;
+          document.getElementById('fDMV').checked = true;
+          document.getElementById('fConsent').checked = true;
         }
       }
     } catch (e) {
-      // Fall through to normal flow if lookup fails
       console.error('Token lookup failed', e);
     }
-  }
-  // Normal flow: no token → eligibility question required
-  document.getElementById('submitBtn').disabled = true;
-}
-
-function setElig(val) {
-  eligState = val;
-  document.getElementById('eligNo').classList.toggle('sel', val === 'no');
-  document.getElementById('eligYes').classList.toggle('sel', val === 'yes');
-  var block = document.getElementById('eligBlock');
-  var btn = document.getElementById('submitBtn');
-  if (val === 'yes') {
-    block.classList.add('ineligible');
-    btn.disabled = true;
-    btn.textContent = 'Not eligible for booking';
-  } else if (val === 'no') {
-    block.classList.remove('ineligible');
-    btn.disabled = false;
-    btn.textContent = 'Request Appointment';
-  }
-}
-
-function updateTier() {
-  var tier = document.getElementById('fTier').value;
-  var info = document.getElementById('tierInfo');
-  if (tier === 'free') {
-    info.className = 'tier-info tier-free';
-    info.textContent = 'Limited time offer. No payment needed. Just come experience it.';
-  } else if (tier === 'single') {
-    info.className = 'tier-info tier-free';
-    info.textContent = 'One session, $75. Payment collected after booking.';
-  } else {
-    info.className = 'tier-info tier-free';
-    info.textContent = 'Four sessions for $250 (save $50). Payment collected after booking.';
   }
 }
 
@@ -290,17 +221,14 @@ async function doSubmit() {
   var last = document.getElementById('fLast').value.trim();
   var phone = document.getElementById('fPhone').value.trim();
   var email = document.getElementById('fEmail').value.trim();
-  var address = document.getElementById('fAddress').value.trim();
-  var notes = document.getElementById('fNotes').value.trim();
-  var tier = document.getElementById('fTier').value;
+  var dmv = document.getElementById('fDMV').checked;
   var consent = document.getElementById('fConsent').checked;
   var err = document.getElementById('errMsg');
   err.style.display = 'none';
 
-  if (eligState !== 'no') { showErr('Please answer the eligibility question above'); return }
   if (!first || !last) { showErr('Please enter your first and last name'); return }
   if (!phone && !email) { showErr('Please enter a phone number or email so we can reach you'); return }
-  if (!address) { showErr('Please enter the session address'); return }
+  if (!dmv) { showErr('Sessions are only available in the DMV area'); return }
   if (!consent) { showErr('Please acknowledge the information packet to continue'); return }
 
   document.getElementById('submitBtn').disabled = true;
@@ -311,11 +239,9 @@ async function doSubmit() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        first: first, last: last, phone: phone, email: email, tier: tier,
+        first: first, last: last, phone: phone, email: email, tier: 'free',
         eligibility_confirmed: true,
-        consent_acknowledged: consent,
-        session_address: address,
-        session_notes: notes
+        consent_acknowledged: true
       })
     });
     var d = await r.json();

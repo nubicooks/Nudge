@@ -725,32 +725,6 @@ footer {
       <div class="ineligible-msg">Sessions are not available to anyone with any medical implant. Please do not continue this form.</div>
     </div>
 
-    <!-- CLIENT INFO -->
-    <div class="field row2">
-      <div>
-        <label>First name</label>
-        <input id="fFirst" type="text" autocomplete="given-name">
-      </div>
-      <div>
-        <label>Last name</label>
-        <input id="fLast" type="text" autocomplete="family-name">
-      </div>
-    </div>
-    <div class="field row2">
-      <div>
-        <label>Phone</label>
-        <input id="fPhone" type="tel" autocomplete="tel" placeholder="(240) 555-1234">
-      </div>
-      <div>
-        <label>Email</label>
-        <input id="fEmail" type="email" autocomplete="email" placeholder="you@email.com">
-      </div>
-    </div>
-    <div class="field">
-      <label>Session address</label>
-      <input id="fAddress" type="text" autocomplete="street-address" placeholder="Street, city, unit #">
-    </div>
-
     <!-- CLAUSES -->
     <div class="clauses">
       <label class="clause-box" id="clauseBox1">
@@ -771,8 +745,8 @@ footer {
 
     <!-- SIGNATURE -->
     <div class="sig-section">
-      <p class="sig-intro">Type your full name to sign. It must match the name entered above.</p>
-      <input class="sig-input" id="fSignature" type="text" placeholder="Your full name" autocomplete="off">
+      <p class="sig-intro">Type your first name to sign.</p>
+      <input class="sig-input" id="fSignature" type="text" placeholder="Your first name" autocomplete="off">
     </div>
 
     <!-- SUBMIT -->
@@ -831,16 +805,7 @@ async function doSubmit(ev) {
 
   if (eligState !== 'no') { showErr('Please answer the eligibility question'); return false; }
 
-  var first = document.getElementById('fFirst').value.trim();
-  var last = document.getElementById('fLast').value.trim();
-  var phone = document.getElementById('fPhone').value.trim();
-  var email = document.getElementById('fEmail').value.trim();
-  var address = document.getElementById('fAddress').value.trim();
   var sig = document.getElementById('fSignature').value.trim();
-
-  if (!first || !last) { showErr('Please enter your first and last name'); return false; }
-  if (!phone && !email) { showErr('Please enter a phone or email'); return false; }
-  if (!address) { showErr('Please enter the session address'); return false; }
 
   var clauses = {
     not_medical: document.getElementById('cl_not_medical').checked,
@@ -852,12 +817,7 @@ async function doSubmit(ev) {
     return false;
   }
 
-  if (!sig) { showErr('Please type your name to sign'); return false; }
-  var expected = (first + ' ' + last).trim().toLowerCase();
-  if (sig.toLowerCase() !== expected) {
-    showErr('Signature must match your full name exactly (first and last)');
-    return false;
-  }
+  if (!sig) { showErr('Please type your first name to sign'); return false; }
 
   var btn = document.getElementById('submitBtn');
   btn.disabled = true;
@@ -868,7 +828,6 @@ async function doSubmit(ev) {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        first: first, last: last, phone: phone, email: email, address: address,
         eligible: true, clauses: clauses, signature: sig
       })
     });
