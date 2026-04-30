@@ -6,14 +6,16 @@
 <title>Book a Session — the Sol Standard</title>
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Libre+Franklin:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--red:#cc0000;--red-h:#e00a0a;--cream:#faf5eb;--cream2:#f2e8d6;--cream3:#e8dcc8;--brown:#2a1a0a;--brown2:#5a4a3a;--brown3:#8a7a6a;--green:#1a7a2e;--gold:#c49a3c;--white:#fff;--r:12px}
+:root{--blue:#26547D;--blue-d:#1a3d5c;--blue-l:#3a6d9d;--yellow:#FFCE5C;--pink:#EF436B;--green:#05C793;--cream:#FFF5EB;--cream2:#f5e9d4;--cream3:#e8dcc8;--ink:#1a2420;--text:#4a5550;--text-dim:#8a8580;--red:#26547D;--red-h:#1a3d5c;--gold:#FFCE5C;--brown:#1a2420;--brown2:#4a5550;--brown3:#8a8580;--white:#fff;--r:12px}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--cream);color:var(--brown);font-family:'Libre Franklin',sans-serif;min-height:100vh}
 ::selection{background:var(--red);color:#fff}
 
-header{background:var(--red);padding:20px;text-align:center;box-shadow:0 4px 20px rgba(204,0,0,.25)}
-.logo{font-family:'Great Vibes',cursive;font-size:2.2rem;color:#fff}
-.logo-sub{font-family:'JetBrains Mono',monospace;font-size:.5rem;font-weight:500;color:rgba(255,255,255,.6);letter-spacing:3px;display:block;margin-top:-4px}
+header{background:var(--blue);padding:28px 20px 32px;text-align:center;box-shadow:0 2px 12px rgba(38,84,125,0.2)}
+.logo{font-family:'Great Vibes',cursive;font-size:3.2rem;color:#fff;font-weight:400;line-height:0.9;text-shadow:0 2px 8px rgba(0,0,0,0.2);margin-top:10px}
+.logo-row{display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.logo-mark{width:70px;height:70px;flex-shrink:0}
+.logo-sub{font-family:'JetBrains Mono',monospace;font-size:.5rem;font-weight:500;color:#FFCE5C;letter-spacing:3px;display:block;margin-top:10px}
 
 .container{max-width:480px;margin:0 auto;padding:24px 16px 60px}
 .welcome{text-align:center;padding:24px 0 20px}
@@ -105,7 +107,15 @@ footer a{color:var(--red);text-decoration:none}
 <body>
 
 <header>
-  <div class="logo">Nudge</div>
+  <div class="logo-row">
+    <svg class="logo-mark" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="40" y1="90" x2="73" y2="90" stroke="#FFCE5C" stroke-width="2" stroke-linecap="round"/>
+      <polyline points="67,85 75,90 67,95" stroke="#FFCE5C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M50 20 L150 20 L100 115 Z" stroke="#FFCE5C" stroke-width="4" fill="none" stroke-linejoin="round"/>
+      <path d="M50 160 L150 160 L100 65 Z" stroke="#FFCE5C" stroke-width="4" fill="none" stroke-linejoin="round"/>
+    </svg>
+    <div class="logo">Nudge</div>
+  </div>
   <span class="logo-sub">the Fair Exchange</span>
 </header>
 
@@ -130,6 +140,11 @@ footer a{color:var(--red);text-decoration:none}
 
       <label>Phone</label>
       <input id="fPhone" placeholder="(240) 555-1234" autocomplete="tel">
+
+      <label class="consent" style="margin-top:8px">
+        <input type="checkbox" id="fSMS">
+        <span class="consent-text">I agree to receive SMS appointment confirmations and reminders from the Sol Standard at the number above. Message &amp; data rates may apply. Reply STOP to opt out.</span>
+      </label>
 
       <label>Email</label>
       <input id="fEmail" placeholder="email@example.com" autocomplete="email">
@@ -179,6 +194,39 @@ footer a{color:var(--red);text-decoration:none}
         That's it. That's the whole thing.
       </div>
       <div class="footer-note">Keep an eye on your phone. We'll be in touch.</div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--cream2)">
+        <a href="/login" style="color:var(--blue);text-decoration:none;font-size:.8rem">Log in to your account →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW: Account creation step between booking and final success -->
+  <div id="signupView" style="display:none">
+    <div class="success" style="text-align:left">
+      <div class="success-icon" style="margin-left:auto;margin-right:auto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h2 style="text-align:center">Booking received</h2>
+      <div class="msg" id="signupMsg" style="text-align:center"></div>
+
+      <div style="margin-top:20px;padding:18px;background:var(--cream);border-radius:8px;border:1px solid var(--cream2)">
+        <div style="font-family:'Libre Franklin',sans-serif;font-weight:700;font-size:.95rem;color:var(--ink);margin-bottom:6px">Create an account — optional</div>
+        <div style="font-size:.78rem;color:var(--text);line-height:1.55;margin-bottom:14px">Set a password now and you'll be able to log in later to see your session history and reports.</div>
+
+        <div class="field">
+          <label for="suPw" style="display:block;font-size:.55rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);font-weight:600;margin-bottom:4px">Password (at least 6 characters)</label>
+          <input id="suPw" type="password" placeholder="••••••" style="width:100%;padding:10px 12px;border:1.5px solid var(--cream2);background:#fff;color:var(--ink);font-size:.85rem;border-radius:6px;font-family:inherit">
+        </div>
+
+        <div id="suErr" style="display:none;color:var(--pink);font-size:.72rem;margin-bottom:8px"></div>
+
+        <div style="display:flex;gap:10px">
+          <button id="suCreateBtn" onclick="createAccount()" style="flex:1;padding:11px;background:var(--blue);color:#fff;border:none;font-weight:700;font-size:.8rem;border-radius:6px;cursor:pointer">Create account</button>
+          <button onclick="skipAccount()" style="flex:1;padding:11px;background:transparent;color:var(--text);border:1px solid var(--cream2);font-weight:500;font-size:.8rem;border-radius:6px;cursor:pointer">Skip for now</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -223,11 +271,13 @@ async function doSubmit() {
   var email = document.getElementById('fEmail').value.trim();
   var dmv = document.getElementById('fDMV').checked;
   var consent = document.getElementById('fConsent').checked;
+  var sms = document.getElementById('fSMS').checked;
   var err = document.getElementById('errMsg');
   err.style.display = 'none';
 
   if (!first || !last) { showErr('Please enter your first and last name'); return }
   if (!phone && !email) { showErr('Please enter a phone number or email so we can reach you'); return }
+  if (phone && !sms) { showErr('Please confirm SMS consent to use a phone number'); return }
   if (!dmv) { showErr('Sessions are only available in the DMV area'); return }
   if (!consent) { showErr('Please acknowledge the information packet to continue'); return }
 
@@ -241,7 +291,8 @@ async function doSubmit() {
       body: JSON.stringify({
         first: first, last: last, phone: phone, email: email, tier: 'free',
         eligibility_confirmed: true,
-        consent_acknowledged: true
+        consent_acknowledged: true,
+        sms_consent: sms
       })
     });
     var d = await r.json();
@@ -252,15 +303,64 @@ async function doSubmit() {
       return;
     }
 
-    document.getElementById('successMsg').innerHTML = 'Thanks <b>' + first + '</b>. Your request is in and we\'re on it.';
+    // Save booking context for signup step
+    window._bookingClientId = d.client_id;
+    window._bookingFirstName = first;
+    document.getElementById('signupMsg').innerHTML = 'Thanks <b>' + first + '</b>. Your request is in and we\'re on it.';
     document.getElementById('formView').style.display = 'none';
-    document.getElementById('successView').style.display = 'block';
+    document.getElementById('signupView').style.display = 'block';
     window.scrollTo(0, 0);
   } catch(e) {
     showErr('Something went wrong. Please try again.');
     document.getElementById('submitBtn').disabled = false;
     document.getElementById('submitBtn').textContent = 'Request Appointment';
   }
+}
+
+async function createAccount() {
+  var pw = document.getElementById('suPw').value;
+  var errEl = document.getElementById('suErr');
+  errEl.style.display = 'none';
+  if (!pw || pw.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters.';
+    errEl.style.display = 'block';
+    return;
+  }
+  var btn = document.getElementById('suCreateBtn');
+  btn.disabled = true; btn.textContent = 'Creating...';
+  try {
+    var r = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: window._bookingClientId, password: pw })
+    });
+    var d = await r.json();
+    if (r.ok) {
+      // Skip the generic success view — send them straight to portal
+      window.location.href = '/me';
+    } else {
+      if (d.error === 'password_already_set') {
+        errEl.innerHTML = 'An account exists for this phone/email. <a href="/login" style="color:var(--blue)">Log in instead →</a>';
+      } else if (d.error === 'password_too_short') {
+        errEl.textContent = 'Password must be at least 6 characters.';
+      } else {
+        errEl.textContent = 'Could not create account. Try again.';
+      }
+      errEl.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Create account';
+    }
+  } catch(e) {
+    errEl.textContent = 'Connection problem. Try again.';
+    errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Create account';
+  }
+}
+
+function skipAccount() {
+  document.getElementById('signupView').style.display = 'none';
+  document.getElementById('successMsg').innerHTML = 'Thanks <b>' + window._bookingFirstName + '</b>. Your request is in and we\'re on it.';
+  document.getElementById('successView').style.display = 'block';
+  window.scrollTo(0, 0);
 }
 
 function showErr(msg) {
